@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  google-play-creator:
+    build: .
+    container_name: google_play_creator
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DEVELOPER_ID=5224012949225681582
+    volumes:
+      # Persist session.json so you only log in once
+      - ./server/session.json:/app/server/session.json

@@ -1,0 +1,19 @@
+{
+  "name": "google-play-auto-creator",
+  "version": "1.0.0",
+  "description": "Google Play Console App Creator & Automation Engine",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "setup-session": "node server/session-setup.js",
+    "test-create": "node server/automation.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "googleapis": "^189.0.0",
+    "iconv-lite": "^0.7.3",
+    "multer": "^2.5.0",
+    "playwright": "^1.50.1"
+  }
+}
