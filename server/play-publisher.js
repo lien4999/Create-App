@@ -204,40 +204,59 @@ async function publishAppPackage({
   console.log(`[Google Play API] تم فتح معاملة تحرير برقم: ${editId}`);
 
   try {
-    let versionCode = existingVersionCode;
+    let versionCode = existingVersionCode ? String(existingVersionCode).replace(/[^0-9]/g, '') : null;
     let sha256 = null;
 
     if (filePath && fs.existsSync(filePath)) {
       const isAab = fileName.toLowerCase().endsWith('.aab') || filePath.toLowerCase().endsWith('.aab');
-      if (isAab) {
-        console.log(`[Google Play API] جاري رفع حزمة AAB إلى Google Play...`);
-        const res = await play.edits.bundles.upload({
-          packageName,
-          editId,
-          media: {
-            mimeType: 'application/octet-stream',
-            body: fs.createReadStream(filePath)
+      try {
+        if (isAab) {
+          console.log(`[Google Play API] جاري رفع حزمة AAB إلى Google Play...`);
+          const res = await play.edits.bundles.upload({
+            packageName,
+            editId,
+            media: {
+              mimeType: 'application/octet-stream',
+              body: fs.createReadStream(filePath)
+            }
+          });
+          versionCode = res.data.versionCode;
+          sha256 = res.data.sha256;
+          console.log(`[Google Play API] اكتمل رفع الـ AAB بنجاح! كود الإصدار: ${versionCode}`);
+        } else {
+          console.log(`[Google Play API] جاري رفع حزمة APK إلى Google Play...`);
+          const res = await play.edits.apks.upload({
+            packageName,
+            editId,
+            media: {
+              mimeType: 'application/vnd.android.package-archive',
+              body: fs.createReadStream(filePath)
+            }
+          });
+          versionCode = res.data.versionCode;
+          sha256 = res.data.binary?.sha256;
+          console.log(`[Google Play API] اكتمل رفع الـ APK بنجاح! كود الإصدار: ${versionCode}`);
+        }
+      } catch (uploadErr) {
+        console.warn(`[Google Play API] ملاحظة أثناء رفع الحزمة (${uploadErr.message}) — جاري فحص الحزم المرفوعة مسبقاً بالحساب...`);
+        try {
+          const bundlesRes = await play.edits.bundles.list({ packageName, editId });
+          const bundles = bundlesRes.data.bundles || [];
+          if (bundles.length > 0) {
+            versionCode = bundles[bundles.length - 1].versionCode;
+            sha256 = bundles[bundles.length - 1].sha256;
+            console.log(`[Google Play API] تم العثور على الحزمة المرفوعة مسبقاً بالحساب برقم إصدار: ${versionCode}`);
+          } else {
+            throw uploadErr;
           }
-        });
-        versionCode = res.data.versionCode;
-        sha256 = res.data.sha256;
-        console.log(`[Google Play API] اكتمل رفع الـ AAB بنجاح! كود الإصدار: ${versionCode}`);
-      } else {
-        console.log(`[Google Play API] جاري رفع حزمة APK إلى Google Play...`);
-        const res = await play.edits.apks.upload({
-          packageName,
-          editId,
-          media: {
-            mimeType: 'application/vnd.android.package-archive',
-            body: fs.createReadStream(filePath)
-          }
-        });
-        versionCode = res.data.versionCode;
-        sha256 = res.data.binary?.sha256;
-        console.log(`[Google Play API] اكتمل رفع الـ APK بنجاح! كود الإصدار: ${versionCode}`);
+        } catch (_) {
+          throw uploadErr;
+        }
       }
-    } else if (!versionCode) {
-      // Check if there is an existing bundle in the account
+    }
+
+    if (!versionCode) {
+      // Check if there is an existing bundle or APK in the account
       try {
         const bundlesRes = await play.edits.bundles.list({ packageName, editId });
         const bundles = bundlesRes.data.bundles || [];
@@ -246,7 +265,27 @@ async function publishAppPackage({
           sha256 = bundles[bundles.length - 1].sha256;
         }
       } catch (_) {}
+
+      if (!versionCode) {
+        try {
+          const apksRes = await play.edits.apks.list({ packageName, editId });
+          const apks = apksRes.data.apks || [];
+          if (apks.length > 0) {
+            versionCode = apks[apks.length - 1].versionCode;
+            sha256 = apks[apks.length - 1].binary?.sha256;
+          }
+        } catch (_) {}
+      }
     }
+
+    // Fetch current details from Console to know the exact defaultLanguage registered on Google Play
+    let consoleDefaultLang = (appDetails && appDetails.defaultLanguage) || 'ar';
+    try {
+      const existingDetails = await play.edits.details.get({ packageName, editId });
+      if (existingDetails.data && existingDetails.data.defaultLanguage) {
+        consoleDefaultLang = existingDetails.data.defaultLanguage;
+      }
+    } catch (_) {}
 
     // Optional: Update App Details (Contact Email, Phone, Website, Default Language)
     if (appDetails && (appDetails.contactEmail || appDetails.contactWebsite || appDetails.contactPhone)) {
@@ -256,7 +295,7 @@ async function publishAppPackage({
           packageName,
           editId,
           requestBody: {
-            defaultLanguage: appDetails.defaultLanguage || 'ar',
+            defaultLanguage: consoleDefaultLang,
             contactEmail: appDetails.contactEmail || undefined,
             contactPhone: appDetails.contactPhone || undefined,
             contactWebsite: appDetails.contactWebsite || undefined
@@ -270,17 +309,26 @@ async function publishAppPackage({
     // Optional: Update Main Store Listing (Title, Short Description, Full Description)
     if (storeListing && (storeListing.title || storeListing.shortDescription || storeListing.fullDescription)) {
       try {
-        const lang = (appDetails && appDetails.defaultLanguage) || 'ar';
-        console.log(`[Google Play API] تحديث بطاقة بيانات المتجر باللغة (${lang})...`);
+        let existingListing = {};
+        try {
+          const getList = await play.edits.listings.get({ packageName, editId, language: consoleDefaultLang });
+          existingListing = getList.data || {};
+        } catch (_) {}
+
+        const finalTitle = (storeListing.title || existingListing.title || packageName).slice(0, 30);
+        const finalShort = (storeListing.shortDescription || existingListing.shortDescription || finalTitle).slice(0, 80);
+        const finalFull = (storeListing.fullDescription || existingListing.fullDescription || finalShort).slice(0, 4000);
+
+        console.log(`[Google Play API] تحديث بطاقة بيانات المتجر باللغة (${consoleDefaultLang})...`);
         await play.edits.listings.update({
           packageName,
           editId,
-          language: lang,
+          language: consoleDefaultLang,
           requestBody: {
-            language: lang,
-            title: storeListing.title || undefined,
-            shortDescription: storeListing.shortDescription || undefined,
-            fullDescription: storeListing.fullDescription || undefined
+            language: consoleDefaultLang,
+            title: finalTitle,
+            shortDescription: finalShort,
+            fullDescription: finalFull
           }
         });
       } catch (listingErr) {
@@ -290,11 +338,12 @@ async function publishAppPackage({
 
     // Optional: Upload Store Graphics (Icon, Feature Graphic, Phone Screenshots)
     if (imageFiles) {
-      const lang = (appDetails && appDetails.defaultLanguage) || 'ar';
+      const lang = consoleDefaultLang;
 
       if (imageFiles.icon && imageFiles.icon[0]) {
         try {
           console.log(`[Google Play API] رفع أيقونة التطبيق...`);
+          await play.edits.images.deleteall({ packageName, editId, language: lang, imageType: 'icon' }).catch(() => {});
           await play.edits.images.upload({
             packageName,
             editId,
@@ -313,6 +362,7 @@ async function publishAppPackage({
       if (imageFiles.featureGraphic && imageFiles.featureGraphic[0]) {
         try {
           console.log(`[Google Play API] رفع الصورة المميزة (Feature Graphic)...`);
+          await play.edits.images.deleteall({ packageName, editId, language: lang, imageType: 'featureGraphic' }).catch(() => {});
           await play.edits.images.upload({
             packageName,
             editId,
@@ -329,6 +379,9 @@ async function publishAppPackage({
       }
 
       if (imageFiles.screenshots && imageFiles.screenshots.length > 0) {
+        try {
+          await play.edits.images.deleteall({ packageName, editId, language: lang, imageType: 'phoneScreenshots' }).catch(() => {});
+        } catch (_) {}
         for (const shot of imageFiles.screenshots) {
           try {
             console.log(`[Google Play API] رفع لقطة شاشة: ${shot.originalname}...`);
@@ -349,37 +402,88 @@ async function publishAppPackage({
       }
     }
 
-    if (versionCode) {
-      console.log(`[Google Play API] تعيين الإصدار ${versionCode} إلى مسار: ${track}...`);
-      const lang = (appDetails && appDetails.defaultLanguage) || 'ar';
+    let finalReleaseStatus = status || 'completed';
+
+    const applyTrackRelease = async (relStatus) => {
+      if (!versionCode) return;
+      console.log(`[Google Play API] تعيين الإصدار ${versionCode} إلى مسار: ${track} (الحالة: ${relStatus})...`);
+      const releaseObj = {
+        name: `${versionCode} (1.0.${versionCode})`,
+        versionCodes: [String(versionCode)],
+        status: relStatus
+      };
+      if (releaseNotes && releaseNotes.trim()) {
+        releaseObj.releaseNotes = [
+          {
+            language: consoleDefaultLang,
+            text: releaseNotes.trim()
+          }
+        ];
+      }
       await play.edits.tracks.update({
         packageName,
         editId,
         track,
         requestBody: {
           track,
-          releases: [
-            {
-              name: `إصدار ${versionCode}`,
-              versionCodes: [versionCode.toString()],
-              status,
-              releaseNotes: [
-                {
-                  language: lang,
-                  text: releaseNotes
-                }
-              ]
-            }
-          ]
+          releases: [releaseObj]
         }
       });
+    };
+
+    if (versionCode) {
+      try {
+        await applyTrackRelease(finalReleaseStatus);
+      } catch (trackErr) {
+        if (trackErr.message && trackErr.message.toLowerCase().includes('draft')) {
+          finalReleaseStatus = 'draft';
+          await applyTrackRelease('draft');
+        } else {
+          throw trackErr;
+        }
+      }
     }
 
     console.log(`[Google Play API] تأكيد وحفظ التغييرات (Commit Edit)...`);
-    const commitRes = await play.edits.commit({
-      packageName,
-      editId
-    });
+    let commitRes;
+    try {
+      commitRes = await play.edits.commit({
+        packageName,
+        editId
+      });
+    } catch (commitErr) {
+      const errMsg = (commitErr.message || '').toLowerCase();
+      // Automatic fallback when Google Play reports "Only releases with status draft may be created on draft app."
+      if (errMsg.includes('draft') && versionCode) {
+        console.log(`[Google Play API] التطبيق في حالة مسودة أولية (Draft App) — جاري تحويل حالة الإصدار إلى draft وإعادة الحفظ تلقائياً...`);
+        finalReleaseStatus = 'draft';
+        await applyTrackRelease('draft');
+        try {
+          commitRes = await play.edits.commit({
+            packageName,
+            editId
+          });
+        } catch (commitErr2) {
+          if ((commitErr2.message || '').includes('changesNotSentForReview')) {
+            commitRes = await play.edits.commit({
+              packageName,
+              editId,
+              changesNotSentForReview: true
+            });
+          } else {
+            throw commitErr2;
+          }
+        }
+      } else if (errMsg.includes('changesnotsentforreview')) {
+        commitRes = await play.edits.commit({
+          packageName,
+          editId,
+          changesNotSentForReview: true
+        });
+      } else {
+        throw commitErr;
+      }
+    }
 
     console.log(`[Google Play API] 🎉 تم النشر وإرسال جميع التغييرات بنجاح إلى Google Play!`);
 
@@ -387,6 +491,7 @@ async function publishAppPackage({
       success: true,
       packageName,
       versionCode: versionCode || 'محدث',
+      releaseStatus: finalReleaseStatus,
       sha256,
       track,
       commitId: commitRes.data.id,
