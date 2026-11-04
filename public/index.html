@@ -414,7 +414,7 @@
           <div class="field-group" style="max-width: 100%; margin-bottom: 0;">
             <label for="privacyPolicyUrl" class="field-label">رابط سياسة الخصوصية (Privacy Policy URL)</label>
             <p class="field-subtext">أدخل رابط صفحة سياسة الخصوصية الخاصة بتطبيقك ليتم عرضها على بطاقة متجر Google Play.</p>
-            <input type="url" id="privacyPolicyUrl" class="gpc-text-input ltr-input" placeholder="https://example.com/privacy-policy" value="https://example.com/privacy-policy">
+            <input type="url" id="privacyPolicyUrl" class="gpc-text-input ltr-input" placeholder="" value="">
           </div>
         </div>
 
@@ -437,11 +437,11 @@
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
               <div>
                 <label for="testUsername" class="field-label">اسم المستخدم / البريد أو الهاتف التجريبي</label>
-                <input type="text" id="testUsername" class="gpc-text-input ltr-input" placeholder="test@example.com">
+                <input type="text" id="testUsername" class="gpc-text-input ltr-input" placeholder="" value="">
               </div>
               <div>
                 <label for="testPassword" class="field-label">كلمة المرور التجريبية</label>
-                <input type="text" id="testPassword" class="gpc-text-input ltr-input" placeholder="123456">
+                <input type="text" id="testPassword" class="gpc-text-input ltr-input" placeholder="" value="">
               </div>
             </div>
           </div>
@@ -469,7 +469,7 @@
           <div class="field-group">
             <label for="ratingEmail" class="field-label">عنوان البريد الإلكتروني لتقييم المحتوى</label>
             <p class="field-subtext">يُستخدم للتواصل معك بشأن تقييمات المحتوى الرسمية (IARC).</p>
-            <input type="email" id="ratingEmail" class="gpc-text-input ltr-input" placeholder="developer@example.com" value="support@createapp.com">
+            <input type="email" id="ratingEmail" class="gpc-text-input ltr-input" placeholder="" value="">
           </div>
 
           <div class="field-group">
@@ -636,17 +636,17 @@
 
           <div class="field-group">
             <label for="contactEmail" class="field-label">البريد الإلكتروني للتواصل (مطلوب) *</label>
-            <input type="email" id="contactEmail" class="gpc-text-input ltr-input" placeholder="support@example.com" value="support@createapp.com" required>
+            <input type="email" id="contactEmail" class="gpc-text-input ltr-input" placeholder="" value="" required>
           </div>
 
           <div class="field-group">
             <label for="contactPhone" class="field-label">رقم الهاتف (اختياري)</label>
-            <input type="tel" id="contactPhone" class="gpc-text-input ltr-input" placeholder="+9647700000000">
+            <input type="tel" id="contactPhone" class="gpc-text-input ltr-input" placeholder="" value="">
           </div>
 
           <div class="field-group" style="margin-bottom: 0;">
             <label for="contactWebsite" class="field-label">الموقع الإلكتروني (اختياري)</label>
-            <input type="url" id="contactWebsite" class="gpc-text-input ltr-input" placeholder="https://example.com">
+            <input type="url" id="contactWebsite" class="gpc-text-input ltr-input" placeholder="" value="">
           </div>
 
           <div class="step-nav-bar">
@@ -671,7 +671,7 @@
           <div class="field-group" style="max-width: 100%;">
             <label for="listingTitle" class="field-label">اسم التطبيق في المتجر *</label>
             <div class="gpc-input-wrapper">
-              <input type="text" id="listingTitle" class="gpc-text-input" maxlength="30" placeholder="اسم التطبيق على المتجر">
+              <input type="text" id="listingTitle" class="gpc-text-input" maxlength="30" placeholder="" value="">
               <span class="char-counter-text" id="listingTitleCounter">0/30</span>
             </div>
           </div>
@@ -680,7 +680,7 @@
             <label for="shortDescription" class="field-label">الوصف المختصر (Short Description) *</label>
             <p class="field-subtext">ملخص سريع يظهر للمستخدمين أولاً في صفحة التطبيق على Google Play (حتى 80 حرفاً).</p>
             <div class="gpc-input-wrapper">
-              <input type="text" id="shortDescription" class="gpc-text-input" maxlength="80" placeholder="تطبيق متكامل وسريع لإدارة الطلبات والخدمات بسهولة...">
+              <input type="text" id="shortDescription" class="gpc-text-input" maxlength="80" placeholder="" value="">
               <span class="char-counter-text" id="shortDescCounter">0/80</span>
             </div>
           </div>
@@ -689,7 +689,7 @@
             <label for="fullDescription" class="field-label">الوصف الكامل (Full Description) *</label>
             <p class="field-subtext">اشرح جميع مميزات وخصائص تطبيقك بالتفصيل (حتى 4000 حرف).</p>
             <div class="gpc-input-wrapper">
-              <textarea id="fullDescription" class="gpc-textarea-input" maxlength="4000" rows="5" placeholder="اكتب الوصف الكامل للتطبيق ومميزاته هنا..."></textarea>
+              <textarea id="fullDescription" class="gpc-textarea-input" maxlength="4000" rows="5" placeholder=""></textarea>
               <span class="char-counter-text" id="fullDescCounter">0/4000</span>
             </div>
           </div>
@@ -848,7 +848,7 @@
 
             <div style="margin-bottom: 22px;">
               <label for="publishNotes" class="field-label">ملاحظات الإصدار (Release Notes):</label>
-              <textarea id="publishNotes" class="gpc-textarea-input" rows="3">إصدار جديد يتضمن جميع المزايا والتحديثات المعتمدة.</textarea>
+              <textarea id="publishNotes" class="gpc-textarea-input" rows="3" placeholder=""></textarea>
             </div>
 
             <div class="step-nav-bar" style="border-top-color: var(--gpc-border);">
@@ -872,6 +872,41 @@
       <button type="button" class="btn-footer-submit" id="submitCreateAppBtn" disabled>إنشاء تطبيق</button>
     </div>
   </footer>
+
+  <!-- Interactive Media Drag-and-Drop Upload Modal (Icon, Feature Graphic, Screenshots) -->
+  <div class="modal-backdrop-gpc" id="mediaUploadModal" style="display: none;">
+    <div class="modal-dialog-gpc" style="max-width: 640px;">
+      <div class="modal-header-gpc">
+        <h3 class="modal-title-gpc" id="mediaModalTitle">رفع الصور والرسومات</h3>
+        <button type="button" class="header-icon-btn" id="closeMediaModalBtn" title="إغلاق">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+
+      <p id="mediaModalSubtitle" style="font-size: 13px; color: var(--gpc-text-muted); margin-bottom: 16px;">
+        اسحب وأفلت الصور هنا أو اضغط على زر التحميل من الملفات
+      </p>
+
+      <div class="drop-zone-gpc" id="mediaModalDropZone" style="padding: 36px 20px; margin-bottom: 18px;">
+        <svg class="cloud-upload-icon" viewBox="0 0 24 24" style="width: 48px; height: 48px; margin-bottom: 10px;">
+          <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+        </svg>
+        <h4 class="drop-primary-text" id="mediaModalDropText" style="font-size: 16px;">اسحب وأفلت الصورة هنا</h4>
+        <p class="drop-secondary-text" id="mediaModalHintText" style="margin-bottom: 16px;">صيغ مدعومة: PNG أو JPEG</p>
+        <button type="button" class="btn-choose-file" id="mediaModalBrowseBtn">تحميل من الملفات</button>
+      </div>
+
+      <div id="mediaModalPreviewContainer" style="display: none; margin-bottom: 18px;">
+        <label class="field-label" style="margin-bottom: 8px;">معاينة الصور المختارة:</label>
+        <div id="mediaModalPreviewList" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; max-height: 210px; overflow-y: auto; padding: 10px; background: var(--gpc-surface-variant); border-radius: 8px;"></div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--gpc-border-subtle); padding-top: 16px;">
+        <button type="button" class="btn-footer-cancel" id="cancelMediaModalBtn">إلغاء</button>
+        <button type="button" class="btn-footer-submit" id="confirmMediaModalBtn">تأكيد واعتماد الصور</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Realtime Google Play API Publishing Modal -->
   <div class="modal-backdrop-gpc" id="publishModal" style="display: none;">
@@ -912,6 +947,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261104-persist"></script>
+  <script src="app.js?v=20261104-clean"></script>
 </body>
 </html>

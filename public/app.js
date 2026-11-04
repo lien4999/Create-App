@@ -307,7 +307,19 @@ document.addEventListener('DOMContentLoaded', () => {
       policyAgreement.checked = Boolean(f.policyAgreement);
       exportAgreement.checked = Boolean(f.exportAgreement);
 
-      if (f.privacyPolicyUrl !== undefined) privacyPolicyUrl.value = f.privacyPolicyUrl;
+      const cleanDummy = (val) => {
+        if (!val) return '';
+        const dummies = [
+          'https://example.com/privacy-policy',
+          'support@createapp.com',
+          'developer@example.com',
+          'support@example.com',
+          'إصدار جديد يتضمن جميع المزايا والتحديثات المعتمدة.'
+        ];
+        return dummies.includes(val.trim()) ? '' : val;
+      };
+
+      if (f.privacyPolicyUrl !== undefined) privacyPolicyUrl.value = cleanDummy(f.privacyPolicyUrl);
       if (f.appAccessType === 'RESTRICTED') {
         accessRestrictedRadio.checked = true;
         testCredentialsBox.style.display = 'block';
@@ -322,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const r = document.querySelector(`input[name="containsAds"][value="${f.containsAds}"]`);
         if (r) r.checked = true;
       }
-      if (f.ratingEmail !== undefined) ratingEmail.value = f.ratingEmail;
+      if (f.ratingEmail !== undefined) ratingEmail.value = cleanDummy(f.ratingEmail);
       if (f.ratingCategory) ratingCategory.value = f.ratingCategory;
       ratingSafeConfirm.checked = f.ratingSafeConfirm !== false;
 
@@ -353,7 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (f.storeCategory) storeCategory.value = f.storeCategory;
-      if (f.contactEmail !== undefined) contactEmail.value = f.contactEmail;
+      if (f.contactEmail !== undefined) contactEmail.value = cleanDummy(f.contactEmail);
       if (f.contactPhone !== undefined) contactPhone.value = f.contactPhone;
       if (f.contactWebsite !== undefined) contactWebsite.value = f.contactWebsite;
 
@@ -372,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (f.publishTrackSelect) publishTrackSelect.value = f.publishTrackSelect;
       if (f.countriesSelect) countriesSelect.value = f.countriesSelect;
-      if (f.publishNotes !== undefined) publishNotes.value = f.publishNotes;
+      if (f.publishNotes !== undefined) publishNotes.value = cleanDummy(f.publishNotes);
 
       completedSteps.clear();
       if (Array.isArray(state.completedSteps)) {
@@ -1163,7 +1175,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ====================================================================
-  // 10. Step 5: Main Store Listing & Graphics Upload
+  // 10. Step 5: Main Store Listing & Interactive Drag-and-Drop Media Modal
   // ====================================================================
   listingTitle.addEventListener('input', () => {
     listingTitleCounter.textContent = `${listingTitle.value.length}/30`;
@@ -1177,42 +1189,226 @@ document.addEventListener('DOMContentLoaded', () => {
     fullDescCounter.textContent = `${fullDescription.value.length}/4000`;
   });
 
-  // App Icon Preview & IDB Save
-  selectIconBtn.addEventListener('click', () => iconFileInput.click());
-  iconFileInput.addEventListener('change', async (e) => {
-    if (e.target.files && e.target.files[0]) {
-      selectedIconFile = e.target.files[0];
-      await idbSaveItem('selectedIconFile', selectedIconFile);
-      iconFileInfo.textContent = `${selectedIconFile.name} (${(selectedIconFile.size / 1024).toFixed(1)} KB)`;
-      const url = URL.createObjectURL(selectedIconFile);
-      iconPreviewBox.innerHTML = `<img src="${url}" alt="App Icon">`;
-      saveBrowserState();
+  // Media Upload Modal Elements & State
+  const mediaUploadModal = document.getElementById('mediaUploadModal');
+  const mediaModalTitle = document.getElementById('mediaModalTitle');
+  const mediaModalSubtitle = document.getElementById('mediaModalSubtitle');
+  const mediaModalDropZone = document.getElementById('mediaModalDropZone');
+  const mediaModalDropText = document.getElementById('mediaModalDropText');
+  const mediaModalHintText = document.getElementById('mediaModalHintText');
+  const mediaModalBrowseBtn = document.getElementById('mediaModalBrowseBtn');
+  const mediaModalPreviewContainer = document.getElementById('mediaModalPreviewContainer');
+  const mediaModalPreviewList = document.getElementById('mediaModalPreviewList');
+  const closeMediaModalBtn = document.getElementById('closeMediaModalBtn');
+  const cancelMediaModalBtn = document.getElementById('cancelMediaModalBtn');
+  const confirmMediaModalBtn = document.getElementById('confirmMediaModalBtn');
+
+  let activeMediaType = null; // 'icon' | 'featureGraphic' | 'screenshots'
+  let stagedMediaFiles = [];
+
+  function openMediaUploadModal(type) {
+    activeMediaType = type;
+    stagedMediaFiles = [];
+
+    if (type === 'icon') {
+      mediaModalTitle.textContent = 'رفع أيقونة التطبيق (512 × 512 بكسل)';
+      mediaModalSubtitle.textContent = 'اسحب وأفلت صورة الأيقونة هنا أو اضغط على تحميل من الملفات';
+      mediaModalDropText.textContent = 'اسحب وأفلت أيقونة التطبيق هنا';
+      mediaModalHintText.textContent = 'PNG أو JPEG بدقة 512×512 بكسل (حتى 1 ميجابايت)';
+      if (selectedIconFile) stagedMediaFiles = [selectedIconFile];
+    } else if (type === 'featureGraphic') {
+      mediaModalTitle.textContent = 'رفع الصورة المميزة (1024 × 500 بكسل)';
+      mediaModalSubtitle.textContent = 'اسحب وأفلت الصورة المميزة هنا أو اضغط على تحميل من الملفات';
+      mediaModalDropText.textContent = 'اسحب وأفلت الصورة المميزة هنا';
+      mediaModalHintText.textContent = 'PNG أو JPEG بدقة 1024×500 بكسل';
+      if (selectedFeatureGraphicFile) stagedMediaFiles = [selectedFeatureGraphicFile];
+    } else if (type === 'screenshots') {
+      mediaModalTitle.textContent = 'إضافة لقطات شاشة الهاتف (2 إلى 8 صور)';
+      mediaModalSubtitle.textContent = 'اسحب وأفلت لقطات الشاشة هنا أو اضغط على تحميل من الملفات';
+      mediaModalDropText.textContent = 'اسحب وأفلت لقطات الشاشة هنا';
+      mediaModalHintText.textContent = 'يمكنك سحب أو اختيار عدة صور دفعة واحدة (PNG أو JPEG)';
+      if (selectedScreenshotFiles.length > 0) {
+        stagedMediaFiles = [...selectedScreenshotFiles];
+      }
+    }
+
+    renderModalStagedPreviews();
+    mediaUploadModal.style.display = 'flex';
+  }
+
+  function closeMediaUploadModal() {
+    mediaUploadModal.style.display = 'none';
+    activeMediaType = null;
+    stagedMediaFiles = [];
+  }
+
+  function handleStagedMediaFiles(fileList) {
+    const validFiles = Array.from(fileList).filter(f => {
+      const name = f.name.toLowerCase();
+      return f.type.startsWith('image/') || name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp');
+    });
+
+    if (validFiles.length === 0) {
+      alert('يرجى اختيار ملف صورة صالح بصيغة PNG أو JPEG.');
+      return;
+    }
+
+    if (activeMediaType === 'icon' || activeMediaType === 'featureGraphic') {
+      stagedMediaFiles = [validFiles[0]];
+    } else if (activeMediaType === 'screenshots') {
+      stagedMediaFiles = stagedMediaFiles.concat(validFiles).slice(0, 8);
+    }
+
+    renderModalStagedPreviews();
+  }
+
+  function renderModalStagedPreviews() {
+    mediaModalPreviewList.innerHTML = '';
+    if (stagedMediaFiles.length === 0) {
+      mediaModalPreviewContainer.style.display = 'none';
+      return;
+    }
+
+    mediaModalPreviewContainer.style.display = 'block';
+    stagedMediaFiles.forEach((file, idx) => {
+      const box = document.createElement('div');
+      box.style.position = 'relative';
+      box.style.borderRadius = '8px';
+      box.style.overflow = 'hidden';
+      box.style.border = '1px solid var(--gpc-border)';
+      box.style.background = '#000';
+
+      if (activeMediaType === 'icon') {
+        box.style.width = '96px';
+        box.style.height = '96px';
+      } else if (activeMediaType === 'featureGraphic') {
+        box.style.width = '200px';
+        box.style.height = '98px';
+      } else {
+        box.style.width = '85px';
+        box.style.height = '150px';
+      }
+
+      const url = URL.createObjectURL(file);
+      box.innerHTML = `
+        <img src="${url}" alt="${file.name}" style="width:100%; height:100%; object-fit:cover;">
+        <button type="button" class="screenshot-delete-btn" title="حذف">✕</button>
+      `;
+      box.querySelector('.screenshot-delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        stagedMediaFiles.splice(idx, 1);
+        renderModalStagedPreviews();
+      });
+
+      mediaModalPreviewList.appendChild(box);
+    });
+  }
+
+  // Trigger Modal on Button or Preview Box Click
+  selectIconBtn.addEventListener('click', () => openMediaUploadModal('icon'));
+  iconPreviewBox.style.cursor = 'pointer';
+  iconPreviewBox.addEventListener('click', () => openMediaUploadModal('icon'));
+
+  selectFeatureGraphicBtn.addEventListener('click', () => openMediaUploadModal('featureGraphic'));
+  featureGraphicPreviewBox.style.cursor = 'pointer';
+  featureGraphicPreviewBox.addEventListener('click', () => openMediaUploadModal('featureGraphic'));
+
+  selectScreenshotsBtn.addEventListener('click', () => openMediaUploadModal('screenshots'));
+
+  // Inside Modal: "تحميل من الملفات" Button opens OS File Picker
+  mediaModalBrowseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (activeMediaType === 'icon') {
+      iconFileInput.value = '';
+      iconFileInput.click();
+    } else if (activeMediaType === 'featureGraphic') {
+      featureGraphicInput.value = '';
+      featureGraphicInput.click();
+    } else if (activeMediaType === 'screenshots') {
+      screenshotsInput.value = '';
+      screenshotsInput.click();
     }
   });
 
-  // Feature Graphic Preview & IDB Save
-  selectFeatureGraphicBtn.addEventListener('click', () => featureGraphicInput.click());
-  featureGraphicInput.addEventListener('change', async (e) => {
-    if (e.target.files && e.target.files[0]) {
-      selectedFeatureGraphicFile = e.target.files[0];
-      await idbSaveItem('selectedFeatureGraphicFile', selectedFeatureGraphicFile);
-      featureGraphicInfo.textContent = `${selectedFeatureGraphicFile.name} (${(selectedFeatureGraphicFile.size / 1024).toFixed(1)} KB)`;
-      const url = URL.createObjectURL(selectedFeatureGraphicFile);
-      featureGraphicPreviewBox.innerHTML = `<img src="${url}" alt="Feature Graphic">`;
-      saveBrowserState();
+  // Also allow clicking the drop zone itself to browse files
+  mediaModalDropZone.addEventListener('click', (e) => {
+    if (e.target === mediaModalBrowseBtn) return;
+    mediaModalBrowseBtn.click();
+  });
+
+  // Drag & Drop inside Media Modal
+  mediaModalDropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    mediaModalDropZone.classList.add('dragover');
+  });
+
+  mediaModalDropZone.addEventListener('dragleave', () => {
+    mediaModalDropZone.classList.remove('dragover');
+  });
+
+  mediaModalDropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    mediaModalDropZone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleStagedMediaFiles(e.dataTransfer.files);
     }
   });
 
-  // Phone Screenshots Gallery & IDB Save
-  selectScreenshotsBtn.addEventListener('click', () => screenshotsInput.click());
-  screenshotsInput.addEventListener('change', async (e) => {
+  // Hidden Input Change Listeners -> Feed into Modal Staged Preview
+  iconFileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      const filesArr = Array.from(e.target.files);
-      selectedScreenshotFiles = selectedScreenshotFiles.concat(filesArr).slice(0, 8);
+      handleStagedMediaFiles(e.target.files);
+    }
+  });
+
+  featureGraphicInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleStagedMediaFiles(e.target.files);
+    }
+  });
+
+  screenshotsInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleStagedMediaFiles(e.target.files);
+    }
+  });
+
+  // Confirm & Apply Staged Media
+  confirmMediaModalBtn.addEventListener('click', async () => {
+    if (activeMediaType === 'icon') {
+      selectedIconFile = stagedMediaFiles[0] || null;
+      await idbSaveItem('selectedIconFile', selectedIconFile);
+      if (selectedIconFile) {
+        iconFileInfo.textContent = `${selectedIconFile.name} (${(selectedIconFile.size / 1024).toFixed(1)} KB)`;
+        iconPreviewBox.innerHTML = `<img src="${URL.createObjectURL(selectedIconFile)}" alt="App Icon">`;
+      } else {
+        iconFileInfo.textContent = 'لم يتم اختيار صورة بعد';
+        iconPreviewBox.innerHTML = '<span>512×512</span>';
+      }
+    } else if (activeMediaType === 'featureGraphic') {
+      selectedFeatureGraphicFile = stagedMediaFiles[0] || null;
+      await idbSaveItem('selectedFeatureGraphicFile', selectedFeatureGraphicFile);
+      if (selectedFeatureGraphicFile) {
+        featureGraphicInfo.textContent = `${selectedFeatureGraphicFile.name} (${(selectedFeatureGraphicFile.size / 1024).toFixed(1)} KB)`;
+        featureGraphicPreviewBox.innerHTML = `<img src="${URL.createObjectURL(selectedFeatureGraphicFile)}" alt="Feature Graphic">`;
+      } else {
+        featureGraphicInfo.textContent = 'لم يتم اختيار صورة بعد';
+        featureGraphicPreviewBox.innerHTML = '<span>1024 × 500</span>';
+      }
+    } else if (activeMediaType === 'screenshots') {
+      selectedScreenshotFiles = [...stagedMediaFiles];
       await idbSaveItem('selectedScreenshotFiles', selectedScreenshotFiles);
       renderScreenshotsGallery();
-      saveBrowserState();
     }
+
+    saveBrowserState();
+    closeMediaUploadModal();
+  });
+
+  closeMediaModalBtn.addEventListener('click', closeMediaUploadModal);
+  cancelMediaModalBtn.addEventListener('click', closeMediaUploadModal);
+  mediaUploadModal.addEventListener('click', (e) => {
+    if (e.target === mediaUploadModal) closeMediaUploadModal();
   });
 
   function renderScreenshotsGallery() {
