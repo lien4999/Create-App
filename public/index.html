@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20261104-dndfix2">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path fill='%23EA4335' d='M20.2 19.8L3.5 36.5c.5.5 1.3.8 2.2.8.8 0 1.5-.2 2.1-.6l19.5-11.2-7.1-5.7z'/><path fill='%23FBBC04' d='M34.5 16.7l-7.2-4.1-7.1 7.2 7.1 7.2 7.3-4.2c1.2-.7 2-2 2-3.5s-.8-2.9-2.1-3.6z'/><path fill='%234285F4' d='M3.5 2.7C3.2 3.1 3 3.6 3 4.2v31.6c0 .6.2 1.1.5 1.5l16.7-16.7L3.5 2.7z'/><path fill='%2334A853' d='M20.2 20.2l7.1-7.2L7.8 1.8C7.2 1.4 6.5 1.2 5.7 1.2c-.9 0-1.7.3-2.2.8l16.7 18.2z'/></svg>">
   <!-- Client-side Unzipping Library for In-Browser Pre-Upload Processing -->
   <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
@@ -703,9 +703,9 @@
           <div class="field-group" style="max-width: 100%;">
             <label class="field-label">أيقونة التطبيق (512 × 512 بكسل)</label>
             <p class="field-subtext">ملف PNG أو JPEG بدقة 512×512 بكسل وبحجم يصل إلى 1 ميجابايت.</p>
-            <input type="file" id="iconFileInput" accept="image/png,image/jpeg" style="display: none;">
-            <div class="media-upload-container">
-              <div class="media-preview-box icon-preview" id="iconPreviewBox">
+            <input type="file" id="iconFileInput" accept="image/*" style="display: none;">
+            <div class="media-upload-container" id="iconDropContainer">
+              <div class="media-preview-box icon-preview" id="iconPreviewBox" title="اضغط أو اسحب الأيقونة هنا">
                 <span>512×512</span>
               </div>
               <div class="media-upload-action">
@@ -719,9 +719,9 @@
           <div class="field-group" style="max-width: 100%;">
             <label class="field-label">الصورة المميزة (Feature Graphic - 1024 × 500 بكسل)</label>
             <p class="field-subtext">تظهر في أعلى صفحة المتجر الخاصة بتطبيقك.</p>
-            <input type="file" id="featureGraphicInput" accept="image/png,image/jpeg" style="display: none;">
-            <div class="media-upload-container">
-              <div class="media-preview-box banner-preview" id="featureGraphicPreviewBox">
+            <input type="file" id="featureGraphicInput" accept="image/*" style="display: none;">
+            <div class="media-upload-container" id="featureGraphicDropContainer">
+              <div class="media-preview-box banner-preview" id="featureGraphicPreviewBox" title="اضغط أو اسحب الصورة المميزة هنا">
                 <span>1024 × 500</span>
               </div>
               <div class="media-upload-action">
@@ -735,11 +735,11 @@
           <div class="field-group" style="max-width: 100%; margin-bottom: 0;">
             <label class="field-label">لقطات شاشة الهاتف (2 إلى 8 صور)</label>
             <p class="field-subtext">حمّل ما بين 2 إلى 8 لقطات شاشة لواجهات التطبيق.</p>
-            <input type="file" id="screenshotsInput" accept="image/png,image/jpeg" multiple style="display: none;">
+            <input type="file" id="screenshotsInput" accept="image/*" multiple style="display: none;">
             <div style="margin-bottom: 12px;">
               <button type="button" class="btn-choose-file" id="selectScreenshotsBtn" style="padding: 8px 18px; font-size: 13px;">إضافة لقطات شاشة الهاتف</button>
             </div>
-            <div class="screenshots-gallery" id="screenshotsGallery">
+            <div class="screenshots-gallery" id="screenshotsGallery" title="يمكنك أيضاً سحب وإفلات لقطات الشاشة هنا">
               <span class="empty-gallery-note">لم تتم إضافة لقطات شاشة بعد.</span>
             </div>
           </div>
@@ -875,7 +875,7 @@
 
   <!-- Interactive Media Drag-and-Drop Upload Modal (Icon, Feature Graphic, Screenshots) -->
   <div class="modal-backdrop-gpc" id="mediaUploadModal" style="display: none;">
-    <div class="modal-dialog-gpc" style="max-width: 640px;">
+    <div class="modal-dialog-gpc" id="mediaModalDialog" style="max-width: 640px;">
       <div class="modal-header-gpc">
         <h3 class="modal-title-gpc" id="mediaModalTitle">رفع الصور والرسومات</h3>
         <button type="button" class="header-icon-btn" id="closeMediaModalBtn" title="إغلاق">
@@ -887,22 +887,27 @@
         اسحب وأفلت الصور هنا أو اضغط على زر التحميل من الملفات
       </p>
 
-      <div class="drop-zone-gpc" id="mediaModalDropZone" style="padding: 36px 20px; margin-bottom: 18px;">
-        <svg class="cloud-upload-icon" viewBox="0 0 24 24" style="width: 48px; height: 48px; margin-bottom: 10px;">
-          <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
-        </svg>
-        <h4 class="drop-primary-text" id="mediaModalDropText" style="font-size: 16px;">اسحب وأفلت الصورة هنا</h4>
-        <p class="drop-secondary-text" id="mediaModalHintText" style="margin-bottom: 16px;">صيغ مدعومة: PNG أو JPEG</p>
-        <button type="button" class="btn-choose-file" id="mediaModalBrowseBtn">تحميل من الملفات</button>
+      <div class="drop-zone-gpc" id="mediaModalDropZone" style="position: relative; padding: 36px 20px; margin-bottom: 18px; overflow: hidden;">
+        <input type="file" id="mediaModalFileInput" accept="image/*" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;" title="اسحب وأفلت الصورة هنا أو اضغط للاختيار من الملفات">
+        <div style="pointer-events: none; position: relative; z-index: 2;">
+          <svg class="cloud-upload-icon" viewBox="0 0 24 24" style="width: 48px; height: 48px; margin-bottom: 10px;">
+            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+          </svg>
+          <h4 class="drop-primary-text" id="mediaModalDropText" style="font-size: 16px;">اسحب وأفلت الصورة هنا</h4>
+          <p class="drop-secondary-text" id="mediaModalHintText" style="margin-bottom: 16px;">صيغ مدعومة: PNG أو JPEG أو WEBP</p>
+          <span class="btn-choose-file" id="mediaModalBrowseBtn" style="display: inline-block;">تحميل من الملفات</span>
+        </div>
       </div>
 
+      <div id="mediaModalStatusBanner" style="display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 6px; background: var(--gpc-success-bg); border: 1px solid var(--gpc-success-border); color: var(--gpc-success); font-size: 13px; font-weight: 600;"></div>
+
       <div id="mediaModalPreviewContainer" style="display: none; margin-bottom: 18px;">
-        <label class="field-label" style="margin-bottom: 8px;">معاينة الصور المختارة:</label>
-        <div id="mediaModalPreviewList" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; max-height: 210px; overflow-y: auto; padding: 10px; background: var(--gpc-surface-variant); border-radius: 8px;"></div>
+        <label class="field-label" style="margin-bottom: 8px;">معاينة الصور المعتمدة:</label>
+        <div id="mediaModalPreviewList" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; max-height: 220px; overflow-y: auto; padding: 10px; background: var(--gpc-surface-variant); border-radius: 8px;"></div>
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--gpc-border-subtle); padding-top: 16px;">
-        <button type="button" class="btn-footer-cancel" id="cancelMediaModalBtn">إلغاء</button>
+        <button type="button" class="btn-footer-cancel" id="cancelMediaModalBtn">إغلاق</button>
         <button type="button" class="btn-footer-submit" id="confirmMediaModalBtn">تأكيد واعتماد الصور</button>
       </div>
     </div>
@@ -947,6 +952,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261104-clean"></script>
+  <script src="app.js?v=20261104-dndfix2"></script>
 </body>
 </html>

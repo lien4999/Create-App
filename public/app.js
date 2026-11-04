@@ -401,21 +401,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedIcon = await idbGetItem('selectedIconFile');
         if (savedIcon) {
           selectedIconFile = savedIcon;
-          iconFileInfo.textContent = `${selectedIconFile.name} (${(selectedIconFile.size / 1024).toFixed(1)} KB)`;
-          iconPreviewBox.innerHTML = `<img src="${URL.createObjectURL(selectedIconFile)}" alt="App Icon">`;
+          const iconDataUrl = await readFileAsDataURL(selectedIconFile);
+          iconFileInfo.innerHTML = `<span style="color:var(--gpc-success);font-weight:600;">✔ ${selectedIconFile.name} (${(selectedIconFile.size / 1024).toFixed(1)} KB)</span>`;
+          iconPreviewBox.innerHTML = `<img src="${iconDataUrl}" alt="App Icon">`;
         }
 
         const savedBanner = await idbGetItem('selectedFeatureGraphicFile');
         if (savedBanner) {
           selectedFeatureGraphicFile = savedBanner;
-          featureGraphicInfo.textContent = `${selectedFeatureGraphicFile.name} (${(selectedFeatureGraphicFile.size / 1024).toFixed(1)} KB)`;
-          featureGraphicPreviewBox.innerHTML = `<img src="${URL.createObjectURL(selectedFeatureGraphicFile)}" alt="Feature Graphic">`;
+          const bannerDataUrl = await readFileAsDataURL(selectedFeatureGraphicFile);
+          featureGraphicInfo.innerHTML = `<span style="color:var(--gpc-success);font-weight:600;">✔ ${selectedFeatureGraphicFile.name} (${(selectedFeatureGraphicFile.size / 1024).toFixed(1)} KB)</span>`;
+          featureGraphicPreviewBox.innerHTML = `<img src="${bannerDataUrl}" alt="Feature Graphic">`;
         }
 
         const savedShots = await idbGetItem('selectedScreenshotFiles');
         if (Array.isArray(savedShots) && savedShots.length > 0) {
           selectedScreenshotFiles = savedShots;
-          renderScreenshotsGallery();
+          await renderScreenshotsGallery();
         }
       }
 
@@ -883,7 +885,56 @@ document.addEventListener('DOMContentLoaded', () => {
   // ====================================================================
   // 8. Step 2: Pre-Upload File Inspection Engine
   // ====================================================================
-  selectFileBtn.addEventListener('click', () => fileInput.click());
+  function extractFilesFromDragEvent(e) {
+    const out = [];
+    if (e.dataTransfer) {
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        return Array.from(e.dataTransfer.files);
+      }
+      if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+          const item = e.dataTransfer.items[i];
+          if (item.kind === 'file') {
+            const f = item.getAsFile();
+            if (f) out.push(f);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  function readFileAsDataURL(file) {
+    return new Promise((resolve) => {
+      if (!file) return resolve('');
+      if (file._cachedDataUrl) return resolve(file._cachedDataUrl);
+      const reader = new FileReader();
+      reader.onload = () => {
+        file._cachedDataUrl = reader.result;
+        resolve(reader.result);
+      };
+      reader.onerror = () => {
+        try {
+          resolve(URL.createObjectURL(file));
+        } catch (_) {
+          resolve('');
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  selectFileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.value = '';
+    fileInput.click();
+  });
+
+  dropZone.addEventListener('click', (e) => {
+    if (e.target === selectFileBtn) return;
+    fileInput.value = '';
+    fileInput.click();
+  });
 
   fileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -891,20 +942,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
+  ['dragenter', 'dragover'].forEach(evtName => {
+    dropZone.addEventListener(evtName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      dropZone.classList.add('dragover');
+    });
   });
 
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
+  dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dropZone.contains(e.relatedTarget)) {
+      dropZone.classList.remove('dragover');
+    }
   });
 
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
+    e.stopPropagation();
     dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelected(e.dataTransfer.files[0]);
+    const files = extractFilesFromDragEvent(e);
+    if (files.length > 0) {
+      handleFileSelected(files[0]);
     }
   });
 
@@ -1191,40 +1252,103 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Media Upload Modal Elements & State
   const mediaUploadModal = document.getElementById('mediaUploadModal');
+  const mediaModalDialog = document.getElementById('mediaModalDialog');
   const mediaModalTitle = document.getElementById('mediaModalTitle');
   const mediaModalSubtitle = document.getElementById('mediaModalSubtitle');
   const mediaModalDropZone = document.getElementById('mediaModalDropZone');
+  const mediaModalFileInput = document.getElementById('mediaModalFileInput');
   const mediaModalDropText = document.getElementById('mediaModalDropText');
   const mediaModalHintText = document.getElementById('mediaModalHintText');
   const mediaModalBrowseBtn = document.getElementById('mediaModalBrowseBtn');
+  const mediaModalStatusBanner = document.getElementById('mediaModalStatusBanner');
   const mediaModalPreviewContainer = document.getElementById('mediaModalPreviewContainer');
   const mediaModalPreviewList = document.getElementById('mediaModalPreviewList');
   const closeMediaModalBtn = document.getElementById('closeMediaModalBtn');
   const cancelMediaModalBtn = document.getElementById('cancelMediaModalBtn');
   const confirmMediaModalBtn = document.getElementById('confirmMediaModalBtn');
+  const iconDropContainer = document.getElementById('iconDropContainer');
+  const featureGraphicDropContainer = document.getElementById('featureGraphicDropContainer');
 
   let activeMediaType = null; // 'icon' | 'featureGraphic' | 'screenshots'
   let stagedMediaFiles = [];
+  let lastProcessedTimestamp = 0;
 
-  function openMediaUploadModal(type) {
+  function isLikelyImageFile(file) {
+    if (!file) return false;
+    const mime = (file.type || '').toLowerCase();
+    if (mime.startsWith('image/')) return true;
+    const name = (file.name || '').toLowerCase();
+    const imgExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.ico', '.avif', '.jfif'];
+    if (imgExts.some(ext => name.endsWith(ext))) return true;
+    // On some Linux desktop environments, dragged files from certain viewers have empty mime type
+    if (!mime && !name.endsWith('.aab') && !name.endsWith('.apk') && file.size > 0 && file.size < 35 * 1024 * 1024) {
+      return true;
+    }
+    return false;
+  }
+
+  async function applyMediaToMainPage(type, filesArray) {
+    if (type === 'icon') {
+      selectedIconFile = filesArray[0] || null;
+      await idbSaveItem('selectedIconFile', selectedIconFile);
+      if (selectedIconFile) {
+        const dataUrl = await readFileAsDataURL(selectedIconFile);
+        iconFileInfo.innerHTML = `<span style="color:var(--gpc-success);font-weight:600;">✔ ${selectedIconFile.name} (${(selectedIconFile.size / 1024).toFixed(1)} KB)</span>`;
+        iconPreviewBox.innerHTML = `<img src="${dataUrl}" alt="App Icon">`;
+      } else {
+        iconFileInfo.textContent = 'لم يتم اختيار صورة بعد';
+        iconPreviewBox.innerHTML = '<span>512×512</span>';
+      }
+    } else if (type === 'featureGraphic') {
+      selectedFeatureGraphicFile = filesArray[0] || null;
+      await idbSaveItem('selectedFeatureGraphicFile', selectedFeatureGraphicFile);
+      if (selectedFeatureGraphicFile) {
+        const dataUrl = await readFileAsDataURL(selectedFeatureGraphicFile);
+        featureGraphicInfo.innerHTML = `<span style="color:var(--gpc-success);font-weight:600;">✔ ${selectedFeatureGraphicFile.name} (${(selectedFeatureGraphicFile.size / 1024).toFixed(1)} KB)</span>`;
+        featureGraphicPreviewBox.innerHTML = `<img src="${dataUrl}" alt="Feature Graphic">`;
+      } else {
+        featureGraphicInfo.textContent = 'لم يتم اختيار صورة بعد';
+        featureGraphicPreviewBox.innerHTML = '<span>1024 × 500</span>';
+      }
+    } else if (type === 'screenshots') {
+      selectedScreenshotFiles = [...filesArray];
+      await idbSaveItem('selectedScreenshotFiles', selectedScreenshotFiles);
+      await renderScreenshotsGallery();
+    }
+    saveBrowserState();
+  }
+
+  async function openMediaUploadModal(type) {
     activeMediaType = type;
     stagedMediaFiles = [];
+    if (mediaModalStatusBanner) {
+      mediaModalStatusBanner.style.display = 'none';
+      mediaModalStatusBanner.textContent = '';
+    }
+    if (mediaModalFileInput) {
+      mediaModalFileInput.value = '';
+      if (type === 'screenshots') {
+        mediaModalFileInput.setAttribute('multiple', 'multiple');
+      } else {
+        mediaModalFileInput.removeAttribute('multiple');
+      }
+    }
 
     if (type === 'icon') {
       mediaModalTitle.textContent = 'رفع أيقونة التطبيق (512 × 512 بكسل)';
-      mediaModalSubtitle.textContent = 'اسحب وأفلت صورة الأيقونة هنا أو اضغط على تحميل من الملفات';
+      mediaModalSubtitle.textContent = 'اسحب وأفلت صورة الأيقونة داخل النافذة أو اضغط على تحميل من الملفات';
       mediaModalDropText.textContent = 'اسحب وأفلت أيقونة التطبيق هنا';
       mediaModalHintText.textContent = 'PNG أو JPEG بدقة 512×512 بكسل (حتى 1 ميجابايت)';
       if (selectedIconFile) stagedMediaFiles = [selectedIconFile];
     } else if (type === 'featureGraphic') {
       mediaModalTitle.textContent = 'رفع الصورة المميزة (1024 × 500 بكسل)';
-      mediaModalSubtitle.textContent = 'اسحب وأفلت الصورة المميزة هنا أو اضغط على تحميل من الملفات';
+      mediaModalSubtitle.textContent = 'اسحب وأفلت الصورة المميزة داخل النافذة أو اضغط على تحميل من الملفات';
       mediaModalDropText.textContent = 'اسحب وأفلت الصورة المميزة هنا';
       mediaModalHintText.textContent = 'PNG أو JPEG بدقة 1024×500 بكسل';
       if (selectedFeatureGraphicFile) stagedMediaFiles = [selectedFeatureGraphicFile];
     } else if (type === 'screenshots') {
       mediaModalTitle.textContent = 'إضافة لقطات شاشة الهاتف (2 إلى 8 صور)';
-      mediaModalSubtitle.textContent = 'اسحب وأفلت لقطات الشاشة هنا أو اضغط على تحميل من الملفات';
+      mediaModalSubtitle.textContent = 'اسحب وأفلت لقطات الشاشة داخل النافذة أو اضغط على تحميل من الملفات';
       mediaModalDropText.textContent = 'اسحب وأفلت لقطات الشاشة هنا';
       mediaModalHintText.textContent = 'يمكنك سحب أو اختيار عدة صور دفعة واحدة (PNG أو JPEG)';
       if (selectedScreenshotFiles.length > 0) {
@@ -1232,37 +1356,56 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    renderModalStagedPreviews();
+    await renderModalStagedPreviews();
     mediaUploadModal.style.display = 'flex';
   }
 
   function closeMediaUploadModal() {
     mediaUploadModal.style.display = 'none';
+    mediaModalDropZone.classList.remove('dragover');
     activeMediaType = null;
-    stagedMediaFiles = [];
   }
 
-  function handleStagedMediaFiles(fileList) {
-    const validFiles = Array.from(fileList).filter(f => {
-      const name = f.name.toLowerCase();
-      return f.type.startsWith('image/') || name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp');
-    });
+  async function handleStagedMediaFiles(fileList, targetTypeOverride = null) {
+    const now = Date.now();
+    // Prevent duplicate fire within 150ms if both native input change & drop event fire together
+    if (now - lastProcessedTimestamp < 150) return;
+    lastProcessedTimestamp = now;
+
+    const targetType = targetTypeOverride || activeMediaType;
+    if (!targetType) return;
+
+    const validFiles = Array.from(fileList || []).filter(isLikelyImageFile);
 
     if (validFiles.length === 0) {
-      alert('يرجى اختيار ملف صورة صالح بصيغة PNG أو JPEG.');
+      alert('يرجى سحب أو اختيار ملف صورة صالح (PNG أو JPEG أو WEBP).');
       return;
     }
 
-    if (activeMediaType === 'icon' || activeMediaType === 'featureGraphic') {
+    if (targetType === 'icon' || targetType === 'featureGraphic') {
       stagedMediaFiles = [validFiles[0]];
-    } else if (activeMediaType === 'screenshots') {
-      stagedMediaFiles = stagedMediaFiles.concat(validFiles).slice(0, 8);
+    } else if (targetType === 'screenshots') {
+      const baseList = targetTypeOverride ? [...selectedScreenshotFiles] : [...stagedMediaFiles];
+      stagedMediaFiles = baseList.concat(validFiles).slice(0, 8);
     }
 
-    renderModalStagedPreviews();
+    // Immediately apply to Step 5 page & save to IndexedDB so user sees it right away
+    await applyMediaToMainPage(targetType, stagedMediaFiles);
+
+    if (mediaUploadModal.style.display === 'flex' && activeMediaType === targetType) {
+      if (mediaModalStatusBanner) {
+        mediaModalStatusBanner.style.display = 'block';
+        if (targetType === 'screenshots') {
+          mediaModalStatusBanner.textContent = `✔ تم تحميل واعتماد ${stagedMediaFiles.length} صور بنجاح! يمكنك إضافة المزيد أو إغلاق النافذة.`;
+        } else {
+          mediaModalStatusBanner.textContent = `✔ تم تحميل الصورة (${stagedMediaFiles[0].name}) واعتمادها بنجاح!`;
+        }
+      }
+      await renderModalStagedPreviews();
+    }
   }
 
-  function renderModalStagedPreviews() {
+  async function renderModalStagedPreviews() {
     mediaModalPreviewList.innerHTML = '';
     if (stagedMediaFiles.length === 0) {
       mediaModalPreviewContainer.style.display = 'none';
@@ -1270,38 +1413,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     mediaModalPreviewContainer.style.display = 'block';
-    stagedMediaFiles.forEach((file, idx) => {
+    for (let idx = 0; idx < stagedMediaFiles.length; idx++) {
+      const file = stagedMediaFiles[idx];
+      const dataUrl = await readFileAsDataURL(file);
+
       const box = document.createElement('div');
       box.style.position = 'relative';
       box.style.borderRadius = '8px';
       box.style.overflow = 'hidden';
-      box.style.border = '1px solid var(--gpc-border)';
+      box.style.border = '2px solid var(--gpc-success)';
       box.style.background = '#000';
 
       if (activeMediaType === 'icon') {
-        box.style.width = '96px';
-        box.style.height = '96px';
+        box.style.width = '104px';
+        box.style.height = '104px';
       } else if (activeMediaType === 'featureGraphic') {
-        box.style.width = '200px';
-        box.style.height = '98px';
+        box.style.width = '220px';
+        box.style.height = '108px';
       } else {
-        box.style.width = '85px';
-        box.style.height = '150px';
+        box.style.width = '92px';
+        box.style.height = '160px';
       }
 
-      const url = URL.createObjectURL(file);
       box.innerHTML = `
-        <img src="${url}" alt="${file.name}" style="width:100%; height:100%; object-fit:cover;">
+        <img src="${dataUrl}" alt="${file.name}" style="width:100%; height:100%; object-fit:cover;">
         <button type="button" class="screenshot-delete-btn" title="حذف">✕</button>
       `;
-      box.querySelector('.screenshot-delete-btn').addEventListener('click', (e) => {
+      box.querySelector('.screenshot-delete-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
         stagedMediaFiles.splice(idx, 1);
-        renderModalStagedPreviews();
+        await applyMediaToMainPage(activeMediaType, stagedMediaFiles);
+        if (stagedMediaFiles.length === 0 && mediaModalStatusBanner) {
+          mediaModalStatusBanner.style.display = 'none';
+        }
+        await renderModalStagedPreviews();
       });
 
       mediaModalPreviewList.appendChild(box);
-    });
+    }
   }
 
   // Trigger Modal on Button or Preview Box Click
@@ -1315,93 +1464,126 @@ document.addEventListener('DOMContentLoaded', () => {
 
   selectScreenshotsBtn.addEventListener('click', () => openMediaUploadModal('screenshots'));
 
-  // Inside Modal: "تحميل من الملفات" Button opens OS File Picker
-  mediaModalBrowseBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (activeMediaType === 'icon') {
-      iconFileInput.value = '';
-      iconFileInput.click();
-    } else if (activeMediaType === 'featureGraphic') {
-      featureGraphicInput.value = '';
-      featureGraphicInput.click();
-    } else if (activeMediaType === 'screenshots') {
-      screenshotsInput.value = '';
-      screenshotsInput.click();
+  // Native File Input inside Modal DropZone handles both click-to-browse and native file drop
+  if (mediaModalFileInput) {
+    mediaModalFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleStagedMediaFiles(e.target.files);
+      }
+    });
+  }
+
+  // Drag & Drop Listeners on Modal DropZone, Modal Dialog, and Entire Modal Backdrop
+  [mediaModalDropZone, mediaModalDialog, mediaUploadModal].forEach(el => {
+    if (!el) return;
+    ['dragenter', 'dragover'].forEach(evtName => {
+      el.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        mediaModalDropZone.classList.add('dragover');
+      });
+    });
+
+    el.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (el === mediaModalDropZone && !mediaModalDropZone.contains(e.relatedTarget)) {
+        mediaModalDropZone.classList.remove('dragover');
+      }
+    });
+
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      mediaModalDropZone.classList.remove('dragover');
+      const files = extractFilesFromDragEvent(e);
+      if (files.length > 0) {
+        handleStagedMediaFiles(files);
+      }
+    });
+  });
+
+  // Also support direct Drag & Drop onto Step 5 preview boxes without even opening the modal
+  function attachDirectStep5Drop(element, mediaType) {
+    if (!element) return;
+    ['dragenter', 'dragover'].forEach(evtName => {
+      element.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        element.style.borderColor = 'var(--gpc-primary)';
+      });
+    });
+    element.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      element.style.borderColor = '';
+    });
+    element.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      element.style.borderColor = '';
+      const files = extractFilesFromDragEvent(e);
+      if (files.length > 0) {
+        handleStagedMediaFiles(files, mediaType);
+      }
+    });
+  }
+
+  attachDirectStep5Drop(iconPreviewBox, 'icon');
+  attachDirectStep5Drop(iconDropContainer, 'icon');
+  attachDirectStep5Drop(featureGraphicPreviewBox, 'featureGraphic');
+  attachDirectStep5Drop(featureGraphicDropContainer, 'featureGraphic');
+  attachDirectStep5Drop(screenshotsGallery, 'screenshots');
+
+  // Global Window Dragover & Drop Protection (Prevents browser from opening dropped file in tab)
+  window.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+  });
+
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  });
+
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    mediaModalDropZone.classList.remove('dragover');
+    const files = extractFilesFromDragEvent(e);
+    if (files.length === 0) return;
+
+    if (mediaUploadModal.style.display === 'flex' && activeMediaType) {
+      handleStagedMediaFiles(files);
+    } else if (currentStep === 2) {
+      handleFileSelected(files[0]);
     }
   });
 
-  // Also allow clicking the drop zone itself to browse files
-  mediaModalDropZone.addEventListener('click', (e) => {
-    if (e.target === mediaModalBrowseBtn) return;
-    mediaModalBrowseBtn.click();
-  });
-
-  // Drag & Drop inside Media Modal
-  mediaModalDropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    mediaModalDropZone.classList.add('dragover');
-  });
-
-  mediaModalDropZone.addEventListener('dragleave', () => {
-    mediaModalDropZone.classList.remove('dragover');
-  });
-
-  mediaModalDropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    mediaModalDropZone.classList.remove('dragover');
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleStagedMediaFiles(e.dataTransfer.files);
-    }
-  });
-
-  // Hidden Input Change Listeners -> Feed into Modal Staged Preview
+  // Hidden Input Change Listeners -> Feed into Staged Handler
   iconFileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      handleStagedMediaFiles(e.target.files);
+      handleStagedMediaFiles(e.target.files, 'icon');
     }
   });
 
   featureGraphicInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      handleStagedMediaFiles(e.target.files);
+      handleStagedMediaFiles(e.target.files, 'featureGraphic');
     }
   });
 
   screenshotsInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      handleStagedMediaFiles(e.target.files);
+      handleStagedMediaFiles(e.target.files, 'screenshots');
     }
   });
 
-  // Confirm & Apply Staged Media
+  // Confirm & Close Modal (Media is already applied on drop/select, confirm also ensures sync & closes)
   confirmMediaModalBtn.addEventListener('click', async () => {
-    if (activeMediaType === 'icon') {
-      selectedIconFile = stagedMediaFiles[0] || null;
-      await idbSaveItem('selectedIconFile', selectedIconFile);
-      if (selectedIconFile) {
-        iconFileInfo.textContent = `${selectedIconFile.name} (${(selectedIconFile.size / 1024).toFixed(1)} KB)`;
-        iconPreviewBox.innerHTML = `<img src="${URL.createObjectURL(selectedIconFile)}" alt="App Icon">`;
-      } else {
-        iconFileInfo.textContent = 'لم يتم اختيار صورة بعد';
-        iconPreviewBox.innerHTML = '<span>512×512</span>';
-      }
-    } else if (activeMediaType === 'featureGraphic') {
-      selectedFeatureGraphicFile = stagedMediaFiles[0] || null;
-      await idbSaveItem('selectedFeatureGraphicFile', selectedFeatureGraphicFile);
-      if (selectedFeatureGraphicFile) {
-        featureGraphicInfo.textContent = `${selectedFeatureGraphicFile.name} (${(selectedFeatureGraphicFile.size / 1024).toFixed(1)} KB)`;
-        featureGraphicPreviewBox.innerHTML = `<img src="${URL.createObjectURL(selectedFeatureGraphicFile)}" alt="Feature Graphic">`;
-      } else {
-        featureGraphicInfo.textContent = 'لم يتم اختيار صورة بعد';
-        featureGraphicPreviewBox.innerHTML = '<span>1024 × 500</span>';
-      }
-    } else if (activeMediaType === 'screenshots') {
-      selectedScreenshotFiles = [...stagedMediaFiles];
-      await idbSaveItem('selectedScreenshotFiles', selectedScreenshotFiles);
-      renderScreenshotsGallery();
+    if (activeMediaType) {
+      await applyMediaToMainPage(activeMediaType, stagedMediaFiles);
     }
-
-    saveBrowserState();
     closeMediaUploadModal();
   });
 
@@ -1411,29 +1593,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === mediaUploadModal) closeMediaUploadModal();
   });
 
-  function renderScreenshotsGallery() {
+  async function renderScreenshotsGallery() {
     screenshotsGallery.innerHTML = '';
     if (selectedScreenshotFiles.length === 0) {
       screenshotsGallery.innerHTML = '<span class="empty-gallery-note">لم تتم إضافة لقطات شاشة بعد.</span>';
       return;
     }
 
-    selectedScreenshotFiles.forEach((file, index) => {
+    for (let index = 0; index < selectedScreenshotFiles.length; index++) {
+      const file = selectedScreenshotFiles[index];
+      const dataUrl = await readFileAsDataURL(file);
       const item = document.createElement('div');
       item.className = 'screenshot-thumb-item';
-      const url = URL.createObjectURL(file);
       item.innerHTML = `
-        <img src="${url}" alt="Screenshot ${index + 1}">
+        <img src="${dataUrl}" alt="Screenshot ${index + 1}">
         <button type="button" class="screenshot-delete-btn" title="حذف">✕</button>
       `;
       item.querySelector('.screenshot-delete-btn').addEventListener('click', async () => {
         selectedScreenshotFiles.splice(index, 1);
         await idbSaveItem('selectedScreenshotFiles', selectedScreenshotFiles);
-        renderScreenshotsGallery();
+        await renderScreenshotsGallery();
         saveBrowserState();
       });
       screenshotsGallery.appendChild(item);
-    });
+    }
   }
 
   backToStep4Btn.addEventListener('click', () => goToStep(4));
