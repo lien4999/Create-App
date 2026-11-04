@@ -1353,17 +1353,20 @@ document.addEventListener('DOMContentLoaded', () => {
               ctx.fillRect(0, 0, w, h);
               ctx.drawImage(img, 0, 0, w, h);
 
-              const outDataUrl = canvas.toDataURL('image/png');
+              const outMime = targetType === 'icon' ? 'image/png' : 'image/jpeg';
+              const outExt = targetType === 'icon' ? 'png' : 'jpg';
+              const outQuality = targetType === 'icon' ? undefined : 0.85;
+              const outDataUrl = canvas.toDataURL(outMime, outQuality);
               canvas.toBlob((blob) => {
                 if (!blob) {
                   file._cachedDataUrl = dataUrl;
                   return resolve(file);
                 }
                 const cleanBase = (file.name || 'image').replace(/\.[^.]+$/, '');
-                const normalizedFile = new File([blob], `${cleanBase}.png`, { type: 'image/png' });
+                const normalizedFile = new File([blob], `${cleanBase}.${outExt}`, { type: outMime });
                 normalizedFile._cachedDataUrl = outDataUrl;
                 resolve(normalizedFile);
-              }, 'image/png');
+              }, outMime, outQuality);
             } catch (_) {
               file._cachedDataUrl = dataUrl;
               resolve(file);
@@ -1817,11 +1820,15 @@ document.addEventListener('DOMContentLoaded', () => {
     logModal(`[Google Play API] فتح معاملة تحرير جديدة (Insert Edit)...`);
 
     const formData = new FormData();
-    if (currentFile) {
+    const isUsingExistingRelease = Boolean(existingAccountVersionCode) || (releaseUploadedSelect.value && releaseUploadedSelect.value.startsWith('existing-'));
+
+    if (currentFile && !isUsingExistingRelease) {
       formData.append('packageFile', currentFile);
     }
     if (existingAccountVersionCode) {
       formData.append('existingVersionCode', existingAccountVersionCode);
+    } else if (analysisResult && analysisResult.manifest && analysisResult.manifest.versionCode) {
+      formData.append('existingVersionCode', analysisResult.manifest.versionCode);
     }
     formData.append('packageName', selectedPackage);
     formData.append('track', selectedTrack);
@@ -1841,7 +1848,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     try {
-      await wait(700);
+      await wait(500);
       setPStep(pstep2, 'done');
       setPStep(pstep3, 'active');
       logModal(`[Google Play API] جاري رفع التحديثات وتثبيت بطاقة المتجر والصور...`);
@@ -1851,10 +1858,21 @@ document.addEventListener('DOMContentLoaded', () => {
         body: formData
       });
 
-      const result = await response.json();
+      const rawText = await response.text();
+      let result = null;
+      try {
+        result = rawText ? JSON.parse(rawText) : null;
+      } catch (_) {
+        throw new Error('استغرق رفع الملف وقتاً طويلاً على السيرفر السحابي. يرجى الضغط على إرسال مرة أخرى لإتمام الحفظ فوراً.');
+      }
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'فشلت عملية النشر على Google Play');
+      if (!response.ok || !result || !result.success) {
+        throw new Error((result && result.error) || 'فشلت عملية النشر على Google Play');
+      }
+
+      if (result.versionCode && result.versionCode !== 'محدث') {
+        existingAccountVersionCode = result.versionCode;
+        saveBrowserState();
       }
 
       setPStep(pstep3, 'done');
