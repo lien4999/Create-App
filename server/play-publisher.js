@@ -252,7 +252,18 @@ async function publishAppPackage({
     let versionCode = existingVersionCode ? String(existingVersionCode).replace(/[^0-9]/g, '') : null;
     let sha256 = null;
 
-    if (filePath && fs.existsSync(filePath)) {
+    // 1. Check existing bundles in Google Play Console first to avoid redundant slow re-uploads
+    let existingBundles = [];
+    try {
+      const bundlesRes = await play.edits.bundles.list({ packageName, editId });
+      existingBundles = bundlesRes.data.bundles || [];
+    } catch (_) {}
+
+    if (versionCode && existingBundles.some(b => String(b.versionCode) === String(versionCode))) {
+      const matched = existingBundles.find(b => String(b.versionCode) === String(versionCode));
+      sha256 = matched ? matched.sha256 : null;
+      console.log(`[Google Play API] الإصدار رقم (${versionCode}) موجود بالفعل في الحساب — تم تخطي إعادة رفع الحزمة لتسريع العملية.`);
+    } else if (filePath && fs.existsSync(filePath)) {
       const isAab = fileName.toLowerCase().endsWith('.aab') || filePath.toLowerCase().endsWith('.aab');
       try {
         if (isAab) {
@@ -283,44 +294,31 @@ async function publishAppPackage({
           console.log(`[Google Play API] اكتمل رفع الـ APK بنجاح! كود الإصدار: ${versionCode}`);
         }
       } catch (uploadErr) {
-        console.warn(`[Google Play API] ملاحظة أثناء رفع الحزمة (${uploadErr.message}) — جاري فحص الحزم المرفوعة مسبقاً بالحساب...`);
-        try {
-          const bundlesRes = await play.edits.bundles.list({ packageName, editId });
-          const bundles = bundlesRes.data.bundles || [];
-          if (bundles.length > 0) {
-            versionCode = bundles[bundles.length - 1].versionCode;
-            sha256 = bundles[bundles.length - 1].sha256;
-            console.log(`[Google Play API] تم العثور على الحزمة المرفوعة مسبقاً بالحساب برقم إصدار: ${versionCode}`);
-          } else {
-            throw uploadErr;
-          }
-        } catch (_) {
+        console.warn(`[Google Play API] ملاحظة أثناء رفع الحزمة (${uploadErr.message}) — جاري استخدام الحزمة المرفوعة مسبقاً بالحساب...`);
+        if (existingBundles.length > 0) {
+          versionCode = existingBundles[existingBundles.length - 1].versionCode;
+          sha256 = existingBundles[existingBundles.length - 1].sha256;
+          console.log(`[Google Play API] تم العثور على الحزمة المرفوعة مسبقاً بالحساب برقم إصدار: ${versionCode}`);
+        } else {
           throw uploadErr;
         }
       }
     }
 
+    if (!versionCode && existingBundles.length > 0) {
+      versionCode = existingBundles[existingBundles.length - 1].versionCode;
+      sha256 = existingBundles[existingBundles.length - 1].sha256;
+    }
+
     if (!versionCode) {
-      // Check if there is an existing bundle or APK in the account
       try {
-        const bundlesRes = await play.edits.bundles.list({ packageName, editId });
-        const bundles = bundlesRes.data.bundles || [];
-        if (bundles.length > 0) {
-          versionCode = bundles[bundles.length - 1].versionCode;
-          sha256 = bundles[bundles.length - 1].sha256;
+        const apksRes = await play.edits.apks.list({ packageName, editId });
+        const apks = apksRes.data.apks || [];
+        if (apks.length > 0) {
+          versionCode = apks[apks.length - 1].versionCode;
+          sha256 = apks[apks.length - 1].binary?.sha256;
         }
       } catch (_) {}
-
-      if (!versionCode) {
-        try {
-          const apksRes = await play.edits.apks.list({ packageName, editId });
-          const apks = apksRes.data.apks || [];
-          if (apks.length > 0) {
-            versionCode = apks[apks.length - 1].versionCode;
-            sha256 = apks[apks.length - 1].binary?.sha256;
-          }
-        } catch (_) {}
-      }
     }
 
     // Fetch current details from Console to know the exact defaultLanguage registered on Google Play
@@ -550,15 +548,16 @@ async function publishAppPackage({
 
     console.log(`[Google Play API] 🎉 تم النشر وإرسال جميع التغييرات بنجاح إلى Google Play!`);
 
-    // Also run Playwright Console declarations automation if session.json is present
+    // Run Playwright Console declarations automation non-blockingly if session.json exists locally
     try {
-      const { completeConsoleDeclarations, SESSION_FILE_PATH } = require('./automation');
-      if (fs.existsSync(SESSION_FILE_PATH)) {
-        await completeConsoleDeclarations({
+      const sessionFile = path.join(__dirname, 'session.json');
+      if (fs.existsSync(sessionFile)) {
+        const { completeConsoleDeclarations } = require('./automation');
+        completeConsoleDeclarations({
           packageName,
           appContent: appContent || getSavedAppDeclarations(packageName) || {},
           appDetails: appDetails || {}
-        });
+        }).catch(() => {});
       }
     } catch (_) {}
 
