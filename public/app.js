@@ -210,13 +210,26 @@ document.addEventListener('DOMContentLoaded', () => {
     validateFormState();
   });
 
-  // Submit "إنشاء تطبيق" -> Moves to Pre-Upload Inspection Studio
+  // Submit "إنشاء تطبيق" -> Opens Developer Console directly in new tab & moves to Pre-Upload Inspection Studio
   submitCreateAppBtn.addEventListener('click', () => {
+    const chosenName = appName.value.trim();
     const chosenPackage = packageName.value.trim();
+    const devId = accountInfo?.developerId || '8679275296222021944';
+
+    // 1. Copy app name & package name to clipboard for user convenience
+    if (chosenName || chosenPackage) {
+      navigator.clipboard.writeText(chosenPackage || chosenName).catch(() => {});
+    }
+
     if (chosenPackage) {
       populatePackageSelect(chosenPackage);
     }
-    // Switch to View 2 (Upload & Pre-Upload Inspection)
+
+    // 2. Open Google Play Console official "Create new app" page directly in a new tab
+    const consoleUrl = `https://play.google.com/console/developers/${devId}/create-new-app`;
+    window.open(consoleUrl, '_blank');
+
+    // 3. Switch to View 2 (Upload & Pre-Upload Inspection)
     switchView('view-upload');
   });
 
