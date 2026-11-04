@@ -1287,6 +1287,66 @@ document.addEventListener('DOMContentLoaded', () => {
     return false;
   }
 
+  function normalizeImageForPlayStore(file, targetType) {
+    return new Promise((resolve) => {
+      try {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result;
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              let w = img.naturalWidth || img.width || 512;
+              let h = img.naturalHeight || img.height || 512;
+
+              if (targetType === 'icon') {
+                w = 512;
+                h = 512;
+              } else if (targetType === 'featureGraphic') {
+                w = 1024;
+                h = 500;
+              } else if (targetType === 'screenshots') {
+                if (w < 320) w = 1080;
+                if (h < 320) h = 1920;
+                if (w > h * 2) w = h * 2;
+                if (h > w * 2) h = w * 2;
+              }
+
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext('2d');
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, w, h);
+              ctx.drawImage(img, 0, 0, w, h);
+
+              const outDataUrl = canvas.toDataURL('image/png');
+              canvas.toBlob((blob) => {
+                if (!blob) {
+                  file._cachedDataUrl = dataUrl;
+                  return resolve(file);
+                }
+                const cleanBase = (file.name || 'image').replace(/\.[^.]+$/, '');
+                const normalizedFile = new File([blob], `${cleanBase}.png`, { type: 'image/png' });
+                normalizedFile._cachedDataUrl = outDataUrl;
+                resolve(normalizedFile);
+              }, 'image/png');
+            } catch (_) {
+              file._cachedDataUrl = dataUrl;
+              resolve(file);
+            }
+          };
+          img.onerror = () => resolve(file);
+          img.src = dataUrl;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+      } catch (_) {
+        resolve(file);
+      }
+    });
+  }
+
   async function applyMediaToMainPage(type, filesArray) {
     if (type === 'icon') {
       selectedIconFile = filesArray[0] || null;
@@ -1375,11 +1435,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetType = targetTypeOverride || activeMediaType;
     if (!targetType) return;
 
-    const validFiles = Array.from(fileList || []).filter(isLikelyImageFile);
+    const rawValidFiles = Array.from(fileList || []).filter(isLikelyImageFile);
 
-    if (validFiles.length === 0) {
+    if (rawValidFiles.length === 0) {
       alert('يرجى سحب أو اختيار ملف صورة صالح (PNG أو JPEG أو WEBP).');
       return;
+    }
+
+    const validFiles = [];
+    for (const f of rawValidFiles) {
+      const normalized = await normalizeImageForPlayStore(f, targetType);
+      validFiles.push(normalized);
     }
 
     if (targetType === 'icon' || targetType === 'featureGraphic') {
@@ -1398,7 +1464,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetType === 'screenshots') {
           mediaModalStatusBanner.textContent = `✔ تم تحميل واعتماد ${stagedMediaFiles.length} صور بنجاح! يمكنك إضافة المزيد أو إغلاق النافذة.`;
         } else {
-          mediaModalStatusBanner.textContent = `✔ تم تحميل الصورة (${stagedMediaFiles[0].name}) واعتمادها بنجاح!`;
+          mediaModalStatusBanner.textContent = `✔ تم تحميل الصورة (${stagedMediaFiles[0].name}) وضبط أبعادها تلقائياً واعتمادها بنجاح!`;
         }
       }
       await renderModalStagedPreviews();
