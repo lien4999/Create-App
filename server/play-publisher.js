@@ -4,6 +4,38 @@ const path = require('path');
 const fs = require('fs');
 
 const SERVICE_ACCOUNT_PATH = path.join(__dirname, 'service-account.json');
+const DECLARATIONS_STORE_PATH = path.join(__dirname, 'app-declarations.json');
+
+function loadAllSavedDeclarations() {
+  try {
+    if (fs.existsSync(DECLARATIONS_STORE_PATH)) {
+      return JSON.parse(fs.readFileSync(DECLARATIONS_STORE_PATH, 'utf8'));
+    }
+  } catch (_) {}
+  return {};
+}
+
+function getSavedAppDeclarations(packageName) {
+  if (!packageName) return null;
+  const all = loadAllSavedDeclarations();
+  return all[packageName.trim().toLowerCase()] || null;
+}
+
+function saveAppDeclarations(packageName, data) {
+  if (!packageName || !data) return;
+  try {
+    const all = loadAllSavedDeclarations();
+    const key = packageName.trim().toLowerCase();
+    all[key] = {
+      ...(all[key] || {}),
+      ...data,
+      updatedAt: Date.now()
+    };
+    fs.writeFileSync(DECLARATIONS_STORE_PATH, JSON.stringify(all, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('Could not save app declarations:', err.message);
+  }
+}
 
 function getPlayClient() {
   let auth;
@@ -137,12 +169,17 @@ async function inspectExistingAppInAccount(packageName) {
 
     await play.edits.delete({ packageName, editId }).catch(() => {});
 
-    // Determine which steps are already completed on Google Play Console
+    const savedDeclarations = getSavedAppDeclarations(packageName) || {};
+
+    // Determine which steps are already completed on Google Play Console & Platform
     const completedStepsOnConsole = [1]; // Step 1 (App creation) is definitely done since package exists in account
     if (hasBundle) {
       completedStepsOnConsole.push(2); // Step 2 (Bundle upload) is already done
     }
-    if (details.contactEmail) {
+    if (savedDeclarations.privacyPolicyUrl || details.contactEmail || details.contactWebsite) {
+      completedStepsOnConsole.push(3);
+    }
+    if (details.contactEmail || savedDeclarations.contactEmail) {
       completedStepsOnConsole.push(4);
     }
     if (listing.title && listing.shortDescription && listing.fullDescription) {
@@ -150,7 +187,7 @@ async function inspectExistingAppInAccount(packageName) {
     }
 
     // Find the first remaining incomplete step (between 2 and 6)
-    let nextRemainingStep = 2;
+    let nextRemainingStep = 6;
     for (let s = 2; s <= 6; s++) {
       if (!completedStepsOnConsole.includes(s)) {
         nextRemainingStep = s;
@@ -167,6 +204,7 @@ async function inspectExistingAppInAccount(packageName) {
       details,
       listing,
       images,
+      appContent: savedDeclarations,
       completedStepsOnConsole,
       nextRemainingStep
     };
@@ -193,9 +231,16 @@ async function publishAppPackage({
   status = 'completed',
   storeListing = null,
   appDetails = null,
+  appContent = null,
   imageFiles = null
 }) {
   const play = getPlayClient();
+  if (appContent || appDetails) {
+    saveAppDeclarations(packageName, {
+      ...(appContent || {}),
+      ...(appDetails || {})
+    });
+  }
   
   console.log(`[Google Play API] بدء عملية النشر وإرسال التغييرات: ${packageName} (المسار: ${track})`);
 
@@ -304,6 +349,24 @@ async function publishAppPackage({
       } catch (detailErr) {
         console.warn(`[Google Play API] تنبيه أثناء تحديث تفاصيل الاتصال:`, detailErr.message);
       }
+    }
+
+    // Submit Official Data Safety Declaration (أمان البيانات) via applications.dataSafety API
+    try {
+      console.log(`[Google Play API] إرسال نموذج أمان البيانات (Data Safety)...`);
+      const dataSafetyCsv = [
+        'Question ID (machine readable),Response ID (machine readable),Response value,Answer requirement,Human-friendly question label',
+        'PSL_DATA_COLLECTION_COLLECTS_PERSONAL_DATA,,false,REQUIRED,Does your app collect or share any of the required user data types?'
+      ].join('\n');
+      await play.applications.dataSafety({
+        packageName,
+        requestBody: {
+          safetyLabels: dataSafetyCsv
+        }
+      });
+      console.log(`[Google Play API] ✔ تم إكمال مهمة أمان البيانات (Data Safety) بنجاح!`);
+    } catch (dsErr) {
+      console.warn(`[Google Play API] تنبيه أثناء إرسال أمان البيانات:`, dsErr.message);
     }
 
     // Optional: Update Main Store Listing (Title, Short Description, Full Description)
@@ -487,6 +550,18 @@ async function publishAppPackage({
 
     console.log(`[Google Play API] 🎉 تم النشر وإرسال جميع التغييرات بنجاح إلى Google Play!`);
 
+    // Also run Playwright Console declarations automation if session.json is present
+    try {
+      const { completeConsoleDeclarations, SESSION_FILE_PATH } = require('./automation');
+      if (fs.existsSync(SESSION_FILE_PATH)) {
+        await completeConsoleDeclarations({
+          packageName,
+          appContent: appContent || getSavedAppDeclarations(packageName) || {},
+          appDetails: appDetails || {}
+        });
+      }
+    } catch (_) {}
+
     return {
       success: true,
       packageName,
@@ -509,5 +584,7 @@ async function publishAppPackage({
 module.exports = {
   testPlayConnection,
   inspectExistingAppInAccount,
-  publishAppPackage
+  publishAppPackage,
+  saveAppDeclarations,
+  getSavedAppDeclarations
 };
