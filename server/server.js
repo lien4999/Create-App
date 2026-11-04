@@ -35,8 +35,9 @@ const upload = multer({
   limits: { fileSize: 300 * 1024 * 1024 }, // 300MB limit
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const allowed = ['.aab', '.apk', '.png', '.jpg', '.jpeg', '.webp'];
-    if (allowed.includes(ext)) {
+    const isImageMime = file.mimetype && file.mimetype.startsWith('image/');
+    const allowed = ['.aab', '.apk', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.ico', '.avif', '.jfif'];
+    if (allowed.includes(ext) || isImageMime) {
       cb(null, true);
     } else {
       cb(new Error('صيغة الملف غير مدعومة'));
@@ -46,7 +47,15 @@ const upload = multer({
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  etag: false,
+  lastModified: false,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
 
 const KNOWN_ACCOUNT_APPS = [
   { name: 'ALFA GATE - كورس الجيم والمدرب', package: 'com.alfagate.gym' },
