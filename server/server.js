@@ -5,11 +5,17 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { checkPackageAvailability } = require('./package-checker');
-const { testPlayConnection, publishAppPackage } = require('./play-publisher');
+const { testPlayConnection, checkAppStatus, publishAppPackage } = require('./play-publisher');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DEVELOPER_ID = process.env.DEVELOPER_ID || '8679275296222021944';
+
+const KNOWN_APPS = [
+  { name: 'جوكر بلس - شريك المطاعم', package: 'com.jokerpls.restaurantpartner' },
+  { name: 'ALFA GATE - كورس الجيم والمدرب', package: 'com.alfagate.gym' },
+  { name: 'دولار العراق', package: 'com.app.wrapper' }
+];
 
 // Setup upload directory
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
@@ -59,15 +65,11 @@ app.get('/api/account-info', async (req, res) => {
     serviceAccountConfigured: serviceAccountExists,
     serviceEmail: 'play-api-access@play-api-513517.iam.gserviceaccount.com',
     connection: connectionStatus,
-    knownApps: [
-      { name: 'ALFA GATE - كورس الجيم والمدرب', package: 'com.alfagate.gym' },
-      { name: 'دولار العراق', package: 'com.app.wrapper' },
-      { name: 'جوكر بلس - شريك المطاعم', package: 'com.jokerpls.restaurantpartner' }
-    ]
+    knownApps: KNOWN_APPS
   });
 });
 
-// 2. Check Package Name Availability
+// 2. Check Package Name Availability on Google Play Store (Public)
 app.post('/api/check-package', async (req, res) => {
   try {
     const { packageName } = req.body;
@@ -81,6 +83,50 @@ app.post('/api/check-package', async (req, res) => {
     console.error('Error in /api/check-package:', error);
     res.status(500).json({ error: 'حدث خطأ أثناء فحص الحزمة' });
   }
+});
+
+// 2.1 Check if App Already Exists in the Connected Developer Account
+app.all('/api/app-status/:packageName?', async (req, res) => {
+  const pkg = (req.params.packageName || req.body.packageName || req.query.packageName || '').trim();
+  if (!pkg) {
+    return res.status(400).json({ error: 'اسم الحزمة مطلوب' });
+  }
+
+  // 1. Check with Google Play API
+  let playStatus = { existsInAccount: false };
+  try {
+    playStatus = await checkAppStatus(pkg);
+  } catch (_) {}
+
+  // 2. Check if registered locally in knownApps list
+  const localMatch = KNOWN_APPS.find(a => a.package.toLowerCase() === pkg.toLowerCase());
+
+  if (playStatus && playStatus.existsInAccount) {
+    return res.json({
+      existsInAccount: true,
+      source: 'google-play-api',
+      name: playStatus.title || (localMatch ? localMatch.name : pkg),
+      ...playStatus
+    });
+  }
+
+  if (localMatch) {
+    return res.json({
+      existsInAccount: true,
+      source: 'local-registry',
+      name: localMatch.name,
+      packageName: localMatch.package,
+      title: localMatch.name,
+      shortDescription: '',
+      fullDescription: '',
+      hasReleases: true
+    });
+  }
+
+  return res.json({
+    existsInAccount: false,
+    packageName: pkg
+  });
 });
 
 // Helper to clean up uploaded temp files
@@ -107,9 +153,9 @@ app.post('/api/upload-package', multiUpload, async (req, res) => {
   const files = req.files || {};
   const uploadedFile = files.packageFile ? files.packageFile[0] : null;
 
-  if (!uploadedFile) {
+  if (!uploadedFile && !req.body.storeListingJson && !req.body.appDetailsJson) {
     cleanupFiles(files);
-    return res.status(400).json({ error: 'لم يتم استلام ملف حزمة التطبيق (.aab أو .apk)' });
+    return res.status(400).json({ error: 'لم يتم استلام ملف حزمة التطبيق أو بيانات التحديث' });
   }
 
   const {
@@ -138,11 +184,15 @@ app.post('/api/upload-package', multiUpload, async (req, res) => {
   } catch (_) {}
 
   try {
-    console.log(`[Server] استلام ملف: ${uploadedFile.originalname} (${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)`);
+    if (uploadedFile) {
+      console.log(`[Server] استلام ملف: ${uploadedFile.originalname} (${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)`);
+    } else {
+      console.log(`[Server] تحديث بيانات بطاقة المتجر والمحتوى للحزمة: ${packageName}`);
+    }
 
     const result = await publishAppPackage({
-      filePath: uploadedFile.path,
-      fileName: uploadedFile.originalname,
+      filePath: uploadedFile ? uploadedFile.path : null,
+      fileName: uploadedFile ? uploadedFile.originalname : null,
       packageName,
       track,
       releaseNotes,

@@ -58,11 +58,74 @@ async function testPlayConnection(packageName = 'com.alfagate.gym') {
 }
 
 /**
+ * Checks if an application exists in the developer account and retrieves its current info
+ */
+async function checkAppStatus(packageName) {
+  if (!packageName) return { existsInAccount: false };
+  try {
+    const play = getPlayClient();
+    const edit = await play.edits.insert({ packageName });
+    const editId = edit.data.id;
+
+    let listings = [];
+    let details = {};
+    let tracks = [];
+    let bundles = [];
+
+    try {
+      const resList = await play.edits.listings.list({ packageName, editId });
+      listings = resList.data.listings || [];
+    } catch (_) {}
+
+    try {
+      const resDet = await play.edits.details.get({ packageName, editId });
+      details = resDet.data || {};
+    } catch (_) {}
+
+    try {
+      const resTr = await play.edits.tracks.list({ packageName, editId });
+      tracks = resTr.data.tracks || [];
+    } catch (_) {}
+
+    try {
+      const resBun = await play.edits.bundles.list({ packageName, editId });
+      bundles = resBun.data.bundles || [];
+    } catch (_) {}
+
+    await play.edits.delete({ packageName, editId }).catch(() => {});
+
+    // Primary listing info
+    const primaryListing = listings.find(l => l.language === 'ar') || listings[0] || {};
+
+    return {
+      existsInAccount: true,
+      packageName,
+      title: primaryListing.title || '',
+      shortDescription: primaryListing.shortDescription || '',
+      fullDescription: primaryListing.fullDescription || '',
+      contactEmail: details.contactEmail || '',
+      contactPhone: details.contactPhone || '',
+      contactWebsite: details.contactWebsite || '',
+      defaultLanguage: details.defaultLanguage || 'ar',
+      bundlesCount: bundles.length,
+      hasReleases: bundles.length > 0 || tracks.some(t => t.releases && t.releases.length > 0),
+      tracksCount: tracks.length
+    };
+  } catch (error) {
+    const msg = error.message || '';
+    if (msg.includes('Package not found') || msg.includes('404')) {
+      return { existsInAccount: false, packageName };
+    }
+    return { existsInAccount: false, packageName, error: msg };
+  }
+}
+
+/**
  * Uploads an AAB or APK bundle, updates store listing/details/images if provided, and publishes to a track
  */
 async function publishAppPackage({
-  filePath,
-  fileName,
+  filePath = null,
+  fileName = null,
   packageName,
   track = 'internal',
   releaseNotes = 'تحديث جديد تم رفعه وفحصه عبر المنصة.',
@@ -72,44 +135,47 @@ async function publishAppPackage({
   imageFiles = null
 }) {
   const play = getPlayClient();
-  const isAab = fileName.toLowerCase().endsWith('.aab') || filePath.toLowerCase().endsWith('.aab');
+  const hasFile = Boolean(filePath && fileName);
+  const isAab = hasFile && (fileName.toLowerCase().endsWith('.aab') || filePath.toLowerCase().endsWith('.aab'));
   
-  console.log(`[Google Play API] بدء عملية رفع ونشر: ${packageName} (المسار: ${track}, النوع: ${isAab ? 'AAB' : 'APK'})`);
+  console.log(`[Google Play API] بدء عملية النشر والتحديث: ${packageName} (ملف جديد: ${hasFile ? (isAab ? 'AAB' : 'APK') : 'لا، تحديث بيانات ومحتوى فقط'})`);
 
   const edit = await play.edits.insert({ packageName });
   const editId = edit.data.id;
   console.log(`[Google Play API] تم فتح معاملة تحرير برقم: ${editId}`);
 
   try {
-    let versionCode;
-    let sha256;
+    let versionCode = null;
+    let sha256 = null;
 
-    if (isAab) {
-      console.log(`[Google Play API] جاري رفع حزمة AAB إلى Google Play...`);
-      const res = await play.edits.bundles.upload({
-        packageName,
-        editId,
-        media: {
-          mimeType: 'application/octet-stream',
-          body: fs.createReadStream(filePath)
-        }
-      });
-      versionCode = res.data.versionCode;
-      sha256 = res.data.sha256;
-      console.log(`[Google Play API] اكتمل رفع الـ AAB بنجاح! كود الإصدار: ${versionCode}`);
-    } else {
-      console.log(`[Google Play API] جاري رفع حزمة APK إلى Google Play...`);
-      const res = await play.edits.apks.upload({
-        packageName,
-        editId,
-        media: {
-          mimeType: 'application/vnd.android.package-archive',
-          body: fs.createReadStream(filePath)
-        }
-      });
-      versionCode = res.data.versionCode;
-      sha256 = res.data.binary?.sha256;
-      console.log(`[Google Play API] اكتمل رفع الـ APK بنجاح! كود الإصدار: ${versionCode}`);
+    if (hasFile) {
+      if (isAab) {
+        console.log(`[Google Play API] جاري رفع حزمة AAB إلى Google Play...`);
+        const res = await play.edits.bundles.upload({
+          packageName,
+          editId,
+          media: {
+            mimeType: 'application/octet-stream',
+            body: fs.createReadStream(filePath)
+          }
+        });
+        versionCode = res.data.versionCode;
+        sha256 = res.data.sha256;
+        console.log(`[Google Play API] اكتمل رفع الـ AAB بنجاح! كود الإصدار: ${versionCode}`);
+      } else {
+        console.log(`[Google Play API] جاري رفع حزمة APK إلى Google Play...`);
+        const res = await play.edits.apks.upload({
+          packageName,
+          editId,
+          media: {
+            mimeType: 'application/vnd.android.package-archive',
+            body: fs.createReadStream(filePath)
+          }
+        });
+        versionCode = res.data.versionCode;
+        sha256 = res.data.binary?.sha256;
+        console.log(`[Google Play API] اكتمل رفع الـ APK بنجاح! كود الإصدار: ${versionCode}`);
+      }
     }
 
     // Optional: Update App Details (Contact Email, Phone, Website, Default Language)
@@ -213,29 +279,31 @@ async function publishAppPackage({
       }
     }
 
-    console.log(`[Google Play API] تعيين الإصدار ${versionCode} إلى مسار: ${track}...`);
-    const lang = (appDetails && appDetails.defaultLanguage) || 'ar';
-    await play.edits.tracks.update({
-      packageName,
-      editId,
-      track,
-      requestBody: {
+    if (versionCode) {
+      console.log(`[Google Play API] تعيين الإصدار ${versionCode} إلى مسار: ${track}...`);
+      const lang = (appDetails && appDetails.defaultLanguage) || 'ar';
+      await play.edits.tracks.update({
+        packageName,
+        editId,
         track,
-        releases: [
-          {
-            name: `إصدار ${versionCode}`,
-            versionCodes: [versionCode.toString()],
-            status,
-            releaseNotes: [
-              {
-                language: lang,
-                text: releaseNotes
-              }
-            ]
-          }
-        ]
-      }
-    });
+        requestBody: {
+          track,
+          releases: [
+            {
+              name: `إصدار ${versionCode}`,
+              versionCodes: [versionCode.toString()],
+              status,
+              releaseNotes: [
+                {
+                  language: lang,
+                  text: releaseNotes
+                }
+              ]
+            }
+          ]
+        }
+      });
+    }
 
     console.log(`[Google Play API] تأكيد وحفظ التغييرات (Commit Edit)...`);
     const commitRes = await play.edits.commit({
@@ -265,5 +333,6 @@ async function publishAppPackage({
 
 module.exports = {
   testPlayConnection,
+  checkAppStatus,
   publishAppPackage
 };
