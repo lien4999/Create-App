@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إنشاء تطبيق جديد - Create App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path fill='%23EA4335' d='M20.2 19.8L3.5 36.5c.5.5 1.3.8 2.2.8.8 0 1.5-.2 2.1-.6l19.5-11.2-7.1-5.7z'/><path fill='%23FBBC04' d='M34.5 16.7l-7.2-4.1-7.1 7.2 7.1 7.2 7.3-4.2c1.2-.7 2-2 2-3.5s-.8-2.9-2.1-3.6z'/><path fill='%234285F4' d='M3.5 2.7C3.2 3.1 3 3.6 3 4.2v31.6c0 .6.2 1.1.5 1.5l16.7-16.7L3.5 2.7z'/><path fill='%2334A853' d='M20.2 20.2l7.1-7.2L7.8 1.8C7.2 1.4 6.5 1.2 5.7 1.2c-.9 0-1.7.3-2.2.8l16.7 18.2z'/></svg>">
+  <!-- Client-side Unzipping Library for In-Browser Pre-Upload Processing -->
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+</head>
+<body>
+
+  <!-- Top Header with Brand "Create App" -->
+  <header class="gpc-top-header">
+    <div class="header-right-side">
+      <a class="brand-container" id="brandHomeLink" title="Create App Platform">
+        <svg class="google-play-logo" viewBox="0 0 40 40">
+          <path fill="#EA4335" d="M20.2 19.8L3.5 36.5c.5.5 1.3.8 2.2.8.8 0 1.5-.2 2.1-.6l19.5-11.2-7.1-5.7z"/>
+          <path fill="#FBBC04" d="M34.5 16.7l-7.2-4.1-7.1 7.2 7.1 7.2 7.3-4.2c1.2-.7 2-2 2-3.5s-.8-2.9-2.1-3.6z"/>
+          <path fill="#4285F4" d="M3.5 2.7C3.2 3.1 3 3.6 3 4.2v31.6c0 .6.2 1.1.5 1.5l16.7-16.7L3.5 2.7z"/>
+          <path fill="#34A853" d="M20.2 20.2l7.1-7.2L7.8 1.8C7.2 1.4 6.5 1.2 5.7 1.2c-.9 0-1.7.3-2.2.8l16.7 18.2z"/>
+        </svg>
+        <span class="brand-text">Create App</span>
+      </a>
+    </div>
+
+    <div class="header-left-side">
+      <button type="button" class="btn-notifications" id="notifBtn">
+        <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+        <span>الإشعارات</span>
+      </button>
+
+      <!-- Theme Switcher (Dark / Light) -->
+      <button type="button" class="header-icon-btn" id="themeToggleBtn" title="تبديل الوضع الداكن / الفاتح">
+        <svg id="themeIconDark" viewBox="0 0 24 24">
+          <path d="M12 3c-4.97 0-9 4.03-9 9 0 4.97 4.03 9 9 9 4.97 0 9-4.03 9-9 0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.03 0-5.5-2.47-5.5-5.5 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+        </svg>
+        <svg id="themeIconLight" viewBox="0 0 24 24" style="display: none;">
+          <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>
+        </svg>
+      </button>
+
+      <button type="button" class="header-icon-btn" title="المساعدة والدعم">
+        <svg viewBox="0 0 24 24"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
+      </button>
+
+      <div class="user-avatar-circle" title="حساب المطور">
+        J
+      </div>
+    </div>
+  </header>
+
+  <!-- Body Layout: Right Navigation Rail + Main Content Area -->
+  <div class="gpc-main-layout">
+    
+    <!-- Right-Hand Icon Navigation Rail -->
+    <nav class="gpc-nav-rail" aria-label="شريط التنقل الجانبي">
+      <button type="button" class="rail-item active" id="railItemCreate" data-step="1" title="1. إنشاء تطبيق">
+        <div class="rail-icon-wrapper">
+          <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        </div>
+        <span class="rail-label">إنشاء تطبيق</span>
+      </button>
+
+      <button type="button" class="rail-item" id="railItemUpload" data-step="2" title="2. فحص ورفع الحزمة">
+        <div class="rail-icon-wrapper">
+          <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+        </div>
+        <span class="rail-label">فحص ورفع</span>
+      </button>
+
+      <button type="button" class="rail-item" id="railItemContent1" data-step="3" title="3. محتوى التطبيق">
+        <div class="rail-icon-wrapper">
+          <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+        </div>
+        <span class="rail-label">محتوى التطبيق</span>
+      </button>
+
+      <button type="button" class="rail-item" id="railItemContent2" data-step="4" title="4. الأمان والفئة">
+        <div class="rail-icon-wrapper">
+          <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+        </div>
+        <span class="rail-label">الأمان والفئة</span>
+      </button>
+
+      <button type="button" class="rail-item" id="railItemStore" data-step="5" title="5. بطاقة المتجر">
+        <div class="rail-icon-wrapper">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z"/></svg>
+        </div>
+        <span class="rail-label">بطاقة المتجر</span>
+      </button>
+
+      <button type="button" class="rail-item" id="railItemRelease" data-step="6" title="6. إصدار التطبيق">
+        <div class="rail-icon-wrapper">
+          <svg viewBox="0 0 24 24"><path d="M12 2.5s-4.5 2.04-4.5 10.5c0 2.49 1.04 4.5 1.04 4.5l-1.54 2.5h10l-1.54-2.5s1.04-2.01 1.04-4.5c0-8.46-4.5-10.5-4.5-10.5zm0 8.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+        </div>
+        <span class="rail-label">إصدار التطبيق</span>
+      </button>
+    </nav>
+
+    <!-- Main Workspace Area -->
+    <main class="gpc-content-area">
+
+      <!-- ====================================================================
+           TOP 6-CIRCLE STEPPER PROGRESS TRACKER BAR
+           ==================================================================== -->
+      <div class="gpc-stepper-container" style="max-width: 960px;">
+        <div class="gpc-stepper-track">
+          <div class="stepper-progress-fill" id="stepperProgressFill"></div>
+
+          <div class="stepper-step active" data-step="1" id="stepCircle1">
+            <div class="step-circle">
+              <span class="step-num">1</span>
+              <span class="step-check">✓</span>
+            </div>
+            <span class="step-label">1. إنشاء التطبيق</span>
+          </div>
+
+          <div class="stepper-step" data-step="2" id="stepCircle2">
+            <div class="step-circle">
+              <span class="step-num">2</span>
+              <span class="step-check">✓</span>
+            </div>
+            <span class="step-label">2. رفع ملف التطبيق</span>
+          </div>
+
+          <div class="stepper-step" data-step="3" id="stepCircle3">
+            <div class="step-circle">
+              <span class="step-num">3</span>
+              <span class="step-check">✓</span>
+            </div>
+            <span class="step-label">3. محتوى التطبيق</span>
+          </div>
+
+          <div class="stepper-step" data-step="4" id="stepCircle4">
+            <div class="step-circle">
+              <span class="step-num">4</span>
+              <span class="step-check">✓</span>
+            </div>
+            <span class="step-label">4. الأمان والفئة</span>
+          </div>
+
+          <div class="stepper-step" data-step="5" id="stepCircle5">
+            <div class="step-circle">
+              <span class="step-num">5</span>
+              <span class="step-check">✓</span>
+            </div>
+            <span class="step-label">5. بطاقة المتجر</span>
+          </div>
+
+          <div class="stepper-step" data-step="6" id="stepCircle6">
+            <div class="step-circle">
+              <span class="step-num">6</span>
+              <span class="step-check">✓</span>
+            </div>
+            <span class="step-label">6. إصدار التطبيق</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====================================================================
+           PAGE 1: Exact Replica of Google Play Console "إنشاء تطبيق"
+           ==================================================================== -->
+      <section class="gpc-view-panel active" id="view-step-1">
+        
+        <h1 class="page-main-title">إنشاء تطبيق</h1>
+
+        <!-- Card 1: تفاصيل التطبيق -->
+        <div class="gpc-card">
+          <h2 class="card-section-title">تفاصيل التطبيق</h2>
+
+          <!-- Field: اسم التطبيق -->
+          <div class="field-group">
+            <label for="appName" class="field-label">اسم التطبيق</label>
+            <p class="field-subtext">سيظهر تطبيقك بهذا الشكل على Google Play.</p>
+            <div class="gpc-input-wrapper">
+              <input type="text" id="appName" class="gpc-text-input" maxlength="30" placeholder="" required>
+              <span class="char-counter-text" id="appNameCounter">0/30</span>
+            </div>
+          </div>
+
+          <!-- Field: اسم الحزمة -->
+          <div class="field-group">
+            <label for="packageName" class="field-label">اسم الحزمة</label>
+            <div class="gpc-input-wrapper">
+              <input type="text" id="packageName" class="gpc-text-input ltr-input" maxlength="150" placeholder="" required>
+              <span class="char-counter-text" id="packageNameCounter">0/150</span>
+            </div>
+            <button type="button" class="btn-text-link" id="checkPackageBtn">التحقق من التوفّر</button>
+            <div class="package-status-notice" id="packageStatusNotice"></div>
+          </div>
+
+          <!-- Field: اللغة التلقائية -->
+          <div class="field-group">
+            <label for="defaultLanguage" class="field-label">اللغة التلقائية</label>
+            <select id="defaultLanguage" class="gpc-select-input">
+              <option value="ar" selected>العربية – ar</option>
+              <option value="en-US">الإنجليزية – en-US</option>
+              <option value="fr-FR">الفرنسية – fr-FR</option>
+              <option value="tr-TR">التركية – tr-TR</option>
+            </select>
+          </div>
+
+          <!-- Field: تطبيق أو لعبة -->
+          <div class="field-group">
+            <label class="field-label">تطبيق أو لعبة</label>
+            <p class="field-subtext">يمكنك تغيير ذلك لاحقًا في إعدادات "متجر Play".</p>
+            <div class="radio-options-column">
+              <label class="gpc-radio-item">
+                <input type="radio" name="appType" value="APPLICATION" checked>
+                <span>تطبيق</span>
+              </label>
+              <label class="gpc-radio-item">
+                <input type="radio" name="appType" value="GAME">
+                <span>لعبة</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Field: مجاني أو مدفوع -->
+          <div class="field-group">
+            <label class="field-label">مجاني أو مدفوع</label>
+            <p class="field-subtext">يمكنك تعديل هذا الخيار من خلال صفحة "سعر التطبيق" قبل نشر تطبيقك. ولكن بمجرد نشره، لا يمكنك تغييره من مجاني إلى مدفوع.</p>
+            <div class="radio-options-column">
+              <label class="gpc-radio-item">
+                <input type="radio" name="appPrice" value="FREE" checked>
+                <span>مجانية</span>
+              </label>
+              <label class="gpc-radio-item">
+                <input type="radio" name="appPrice" value="PAID">
+                <span>مدفوعة</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: الطلبات الصريحة للأذونات -->
+        <div class="gpc-card">
+          <h2 class="card-section-title">الطلبات الصريحة للأذونات</h2>
+
+          <!-- Sub-section: سياسات تطوير البرامج -->
+          <div class="field-group" style="max-width: 100%;">
+            <label class="field-label">سياسات تطوير البرامج</label>
+            <label class="declaration-item">
+              <input type="checkbox" id="policyAgreement">
+              <div>
+                <span>يُرجى التأكّد من توافق التطبيق مع سياسات تطوير البرامج.</span>
+                <p class="declaration-desc">
+                  يتوافق التطبيق مع <a href="https://play.google.com/about/developer-content-policy/" target="_blank">سياسات المطورين</a>. <a href="https://play.google.com/about/developer-content-policy/" target="_blank">ننصح بالتعرّف على كيفية وصف التطبيق بشكل متوافق مع السياسات</a> لتجنُّب بعض الأسباب الشائعة التي قد تؤدي إلى تعليق التطبيق.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <!-- Sub-section: قوانين التصدير الأمريكية -->
+          <div class="field-group" style="max-width: 100%; margin-bottom: 0;">
+            <label class="field-label">قوانين التصدير الأمريكية</label>
+            <label class="declaration-item">
+              <input type="checkbox" id="exportAgreement">
+              <div>
+                <span>الموافقة على قوانين التصدير الأمريكية</span>
+                <p class="declaration-desc">
+                  يُقرّ مطوّرو البرامج بأن هذا التطبيق لا يخضع لقوانين التصدير الأمريكية أو أنه متوافق معها وتتوافر لديه جميع التراخيص والتصاريح اللازمة لتوزيعه دولياً.
+                </p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ====================================================================
+           PAGE 2: Pre-Upload File Inspection & Upload Studio
+           ==================================================================== -->
+      <section class="gpc-view-panel" id="view-step-2">
+        
+        <h1 class="page-main-title">فحص ورفع الحزمة (Releases)</h1>
+
+        <!-- Drop Zone for .aab or .apk -->
+        <div class="drop-zone-gpc" id="dropZone">
+          <input type="file" id="fileInput" accept=".aab,.apk" style="display: none;">
+          
+          <div id="dropZoneContent">
+            <svg class="cloud-upload-icon" viewBox="0 0 24 24">
+              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+            </svg>
+            <h3 class="drop-primary-text">اسحب وأفلت حزمة التطبيق هنا (.aab أو .apk)</h3>
+            <p class="drop-secondary-text">سيتم فحص الملف وتشريحه واستخراج بياناته أمنياً في المتصفح قبل إرساله للرفع</p>
+            <button type="button" class="btn-choose-file" id="selectFileBtn">اختيار ملف من جهازك</button>
+          </div>
+
+          <!-- Pre-Upload Progress Overlay -->
+          <div class="pre-upload-progress" id="processingOverlay" style="display: none;">
+            <div class="spinner-circle"></div>
+            <h4 id="processingStepTitle" style="font-size: 16px; margin-bottom: 4px;">جاري فحص الحزمة قبل الرفع...</h4>
+            <p id="processingStepDesc" style="font-size: 13px; color: var(--gpc-text-muted); margin-bottom: 8px;">حساب البصمة الرقمية وفك تشريح ملف AndroidManifest...</p>
+            
+            <div class="progress-track">
+              <div class="progress-fill" id="clientProgressBar" style="width: 25%;"></div>
+            </div>
+
+            <div class="task-list-box">
+              <div class="task-row active" id="taskHash">
+                <span>⏳</span>
+                <span>بصمة التشفير الرقمية (SHA-256 WebCrypto)</span>
+              </div>
+              <div class="task-row" id="taskUnzip">
+                <span>⏳</span>
+                <span>تشريح الأرشيف وفحص الملفات التنفيذية</span>
+              </div>
+              <div class="task-row" id="taskManifest">
+                <span>⏳</span>
+                <span>استخراج اسم الحزمة، كود الإصدار و Target SDK</span>
+              </div>
+              <div class="task-row" id="taskSecurity">
+                <span>⏳</span>
+                <span>فحص مصفوفة الأذونات ومستوى الأمان</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inspection Results Card (Shown after file passes pre-upload check) -->
+        <div class="inspection-results-card" id="analysisSection" style="display: none;">
+          <div class="inspection-header-row">
+            <div class="inspection-title-group">
+              <h2 id="resPackageName">com.example.app</h2>
+              <span style="font-size: 13px; color: var(--gpc-text-muted);">
+                <span id="resFileName">app-release.aab</span> • <span id="resFileSize">0 MB</span>
+              </span>
+            </div>
+            <div class="clean-badge-pill" id="resCleanBadge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              <span>تم الفحص قبل الرفع: سليم ونظيف 100%</span>
+            </div>
+          </div>
+
+          <div class="diag-summary-grid">
+            <div class="diag-subcard">
+              <h4>بيانات الحزمة والإصدار</h4>
+              <div class="diag-data-line">
+                <span>اسم الحزمة:</span>
+                <span id="diagPackageName" style="direction: ltr; font-family: var(--gpc-font-mono);">-</span>
+              </div>
+              <div class="diag-data-line">
+                <span>كود الإصدار:</span>
+                <span id="diagVersionCode">-</span>
+              </div>
+              <div class="diag-data-line">
+                <span>اسم الإصدار:</span>
+                <span id="diagVersionName">-</span>
+              </div>
+              <div class="diag-data-line">
+                <span>Target SDK:</span>
+                <span id="diagTargetSdk">-</span>
+              </div>
+            </div>
+
+            <div class="diag-subcard">
+              <h4>الفحص الأمني والبصمة</h4>
+              <div class="diag-data-line">
+                <span>بصمة SHA-256:</span>
+                <span id="diagHash" style="font-family: var(--gpc-font-mono); font-size: 11px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; direction: ltr;">-</span>
+              </div>
+              <div class="diag-data-line">
+                <span>تقييم النظافة:</span>
+                <span id="diagMalwareStatus" style="color: var(--gpc-success);">سليم 100%</span>
+              </div>
+              <div class="diag-data-line">
+                <span>درجة الأمان:</span>
+                <span id="resHealthScore" style="color: var(--gpc-success); font-weight: 700;">100 / 100</span>
+              </div>
+            </div>
+
+            <div class="diag-subcard">
+              <h4>الأذونات المطلوبة (<span id="permCount">0</span>)</h4>
+              <div id="permissionsList" style="max-height: 90px; overflow-y: auto; font-size: 12px; font-family: var(--gpc-font-mono); direction: ltr;">
+                <!-- dynamic permissions -->
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--gpc-border-subtle); padding-top: 18px;">
+            <button type="button" class="btn-footer-cancel" id="resetUploadBtn">فحص ملف آخر</button>
+            <button type="button" class="btn-footer-cancel" id="backToStep1Btn">الرجوع للخطوة 1</button>
+            <button type="button" class="btn-footer-submit" id="completeStep2Btn">
+              <span>اعتماد ملف الحزمة والمتابعة للخطوة 3 ←</span>
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ====================================================================
+           PAGE 3: App Content Tasks - Part 1
+           (سياسة الخصوصية، تفاصيل تسجيل الدخول، الإعلانات، تقييم المحتوى، الجمهور المستهدف)
+           ==================================================================== -->
+      <section class="gpc-view-panel" id="view-step-3">
+        <h1 class="page-main-title">تقديم معلومات حول محتوى تطبيقك (1/2)</h1>
+        <p class="page-subtitle">أكمل مهام سياسة الخصوصية، الوصول للتطبيق، الإعلانات، تقييم المحتوى، والجمهور المستهدف.</p>
+
+        <!-- Task 1: إعداد سياسة الخصوصية -->
+        <div class="gpc-card">
+          <h2 class="card-section-title"><span class="task-badge-number">1</span> إعداد سياسة الخصوصية</h2>
+          <div class="field-group" style="max-width: 100%; margin-bottom: 0;">
+            <label for="privacyPolicyUrl" class="field-label">رابط سياسة الخصوصية (Privacy Policy URL)</label>
+            <p class="field-subtext">أدخل رابط صفحة سياسة الخصوصية الخاصة بتطبيقك ليتم عرضها على بطاقة متجر Google Play.</p>
+            <input type="url" id="privacyPolicyUrl" class="gpc-text-input ltr-input" placeholder="https://example.com/privacy-policy" value="https://example.com/privacy-policy">
+          </div>
+        </div>
+
+        <!-- Task 2: تفاصيل تسجيل الدخول (الوصول إلى التطبيق) -->
+        <div class="gpc-card">
+          <h2 class="card-section-title"><span class="task-badge-number">2</span> تفاصيل تسجيل الدخول (الوصول إلى التطبيق)</h2>
+          <p class="field-subtext">لمراجعة تطبيقك، يجب أن تتمكن Google من الوصول إلى كل أجزائه. أخبرنا إذا كان تطبيقك يتطلب تسجيل دخول.</p>
+          <div class="radio-options-column">
+            <label class="gpc-radio-item">
+              <input type="radio" name="appAccessType" value="FULL_ACCESS" checked id="accessFullRadio">
+              <span>كل الوظائف في تطبيقي متاحة بدون أي قيود دخول</span>
+            </label>
+            <label class="gpc-radio-item">
+              <input type="radio" name="appAccessType" value="RESTRICTED" id="accessRestrictedRadio">
+              <span>كل الوظائف في تطبيقي أو بعضها مقيد (يتطلب حساب تجريبي للمراجعة)</span>
+            </label>
+          </div>
+
+          <div id="testCredentialsBox" style="display: none; margin-top: 18px; padding: 16px; background: var(--gpc-surface-variant); border-radius: 6px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+              <div>
+                <label for="testUsername" class="field-label">اسم المستخدم / البريد أو الهاتف التجريبي</label>
+                <input type="text" id="testUsername" class="gpc-text-input ltr-input" placeholder="test@example.com">
+              </div>
+              <div>
+                <label for="testPassword" class="field-label">كلمة المرور التجريبية</label>
+                <input type="text" id="testPassword" class="gpc-text-input ltr-input" placeholder="123456">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Task 3: الإعلانات -->
+        <div class="gpc-card">
+          <h2 class="card-section-title"><span class="task-badge-number">3</span> الإعلانات</h2>
+          <p class="field-subtext">هل يحتوي تطبيقك على إعلانات؟ (بما في ذلك الإعلانات المعروضة من خلال حزم SDK التابعة لجهات خارجية مثل AdMob).</p>
+          <div class="radio-options-column">
+            <label class="gpc-radio-item">
+              <input type="radio" name="containsAds" value="NO" checked>
+              <span>لا، لا يحتوي تطبيقي على إعلانات</span>
+            </label>
+            <label class="gpc-radio-item">
+              <input type="radio" name="containsAds" value="YES">
+              <span>نعم، يحتوي تطبيقي على إعلانات</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Task 4: تقييم المحتوى -->
+        <div class="gpc-card">
+          <h2 class="card-section-title"><span class="task-badge-number">4</span> تقييم المحتوى (استبيان IARC)</h2>
+          <div class="field-group">
+            <label for="ratingEmail" class="field-label">عنوان البريد الإلكتروني لتقييم المحتوى</label>
+            <p class="field-subtext">يُستخدم للتواصل معك بشأن تقييمات المحتوى الرسمية (IARC).</p>
+            <input type="email" id="ratingEmail" class="gpc-text-input ltr-input" placeholder="developer@example.com" value="support@createapp.com">
+          </div>
+
+          <div class="field-group">
+            <label for="ratingCategory" class="field-label">فئة استبيان التطبيق</label>
+            <select id="ratingCategory" class="gpc-select-input">
+              <option value="UTILITY" selected>جميع أنواع التطبيقات الأخرى (الأدوات، المطاعم، الخدمات، الإنتاجية، التجارة)</option>
+              <option value="REFERENCE">مراجع أو أخبار أو تطبيقات تعليمية</option>
+              <option value="SOCIAL">شبكات اجتماعية أو منتديات أو تواصل</option>
+              <option value="GAME">لعبة (Game)</option>
+            </select>
+          </div>
+
+          <label class="declaration-item">
+            <input type="checkbox" id="ratingSafeConfirm" checked>
+            <div>
+              <span>أقرّ بأن التطبيق خالٍ من محتوى العنف، الكراهية، المواد الإباحية، المقامرة بأموال حقيقية، أو الأنشطة غير القانونية.</span>
+            </div>
+          </label>
+        </div>
+
+        <!-- Task 5: الجمهور المستهدف والمحتوى -->
+        <div class="gpc-card">
+          <h2 class="card-section-title"><span class="task-badge-number">5</span> الجمهور المستهدف والمحتوى</h2>
+          <p class="field-subtext">حدد الفئات العمرية المستهدفة لتطبيقك:</p>
+          <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px;">
+            <label class="declaration-item" style="margin-top: 0;">
+              <input type="checkbox" name="targetAge" value="13-15">
+              <span>13–15</span>
+            </label>
+            <label class="declaration-item" style="margin-top: 0;">
+              <input type="checkbox" name="targetAge" value="16-17" checked>
+              <span>16–17</span>
+            </label>
+            <label class="declaration-item" style="margin-top: 0;">
+              <input type="checkbox" name="targetAge" value="18+" checked>
+              <span>18 عامًا فما فوق</span>
+            </label>
+          </div>
+          <label class="declaration-item" style="margin-top: 16px;">
+            <input type="checkbox" id="notAppealChildren" checked>
+            <div>
+              <span>لا، بطاقة بيانات المتجر لا تجذب الأطفال عن غير قصد.</span>
+            </div>
+          </label>
+
+          <div class="step-nav-bar">
+            <button type="button" class="btn-footer-cancel" id="backToStep2Btn">→ الرجوع للخطوة 2</button>
+            <button type="button" class="btn-footer-submit" id="completeStep3Btn">حفظ وإكمال المهام والمتابعة للخطوة 4 ←</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           PAGE 4: App Content Tasks - Part 2
+           (أمان البيانات، التطبيقات الحكومية/المالية/الصحة مضبوطة على "لا"، فئة التطبيق وتفاصيل الاتصال)
+           ==================================================================== -->
+      <section class="gpc-view-panel" id="view-step-4">
+        <h1 class="page-main-title">أمان البيانات والفئة والإقرارات (2/2)</h1>
+        <p class="page-subtitle">أكمل نموذج أمان البيانات وتفاصيل الاتصال بالمتجر. (تم ضبط مهام التطبيقات الحكومية والمالية والصحية تلقائياً على "لا").</p>
+
+        <!-- Task 6: أمان البيانات (Data Safety) -->
+        <div class="gpc-card">
+          <h2 class="card-section-title"><span class="task-badge-number">6</span> أمان البيانات (Data Safety)</h2>
+          <p class="field-subtext">تزويد المستخدمين بمعلومات واضحة حول كيفية تعامل تطبيقك مع بياناتهم وأمانها.</p>
+
+          <div class="field-group" style="max-width: 100%;">
+            <label class="field-label">هل يجمع تطبيقك أو يشارك أيًا من أنواع بيانات المستخدمين المطلوبة؟</label>
+            <div class="radio-options-column">
+              <label class="gpc-radio-item">
+                <input type="radio" name="dataSafetyCollect" value="NO" checked>
+                <span>لا، لا يجمع تطبيقي أو يشارك أيًا من أنواع بيانات المستخدمين الحساسة</span>
+              </label>
+              <label class="gpc-radio-item">
+                <input type="radio" name="dataSafetyCollect" value="YES">
+                <span>نعم، يجمع تطبيقي بعض البيانات الأساسية لتشغيل الخدمة (ومشفرة بالكامل عبر HTTPS)</span>
+              </label>
+            </div>
+          </div>
+
+          <label class="declaration-item">
+            <input type="checkbox" id="dataEncryptedTransit" checked>
+            <div>
+              <span>نعم، يتم تشفير جميع بيانات المستخدم التي يجمعها تطبيقك أثناء النقل باستخدام HTTPS/TLS.</span>
+            </div>
+          </label>
+        </div>
+
+        <!-- Tasks 7, 8, 9: الإقرارات التلقائية المعتمدة (حكومية، مالية، صحة = لا) -->
+        <div class="gpc-card">
+          <div class="auto-declaration-pill">
+            <span>✓ تم الضبط التلقائي المسبق على (لا) لتسريع الإجراءات</span>
+          </div>
+          <h2 class="card-section-title">التطبيقات الحكومية والميزات المالية والصحية</h2>
+          <p class="field-subtext">تم تحديد الإجابة بـ "لا" تلقائياً لهذه المهام الثلاث كما هو معتاد للتطبيقات العامة، ويمكنك التأكد منها أدناه:</p>
+
+          <!-- التطبيقات الحكومية -->
+          <div class="field-group" style="max-width: 100%; padding-bottom: 16px; border-bottom: 1px solid var(--gpc-border-subtle);">
+            <label class="field-label">التطبيقات الحكومية</label>
+            <p class="field-subtext">هل تم تطوير هذا التطبيق بواسطة حكومة أو نيابةً عن جهة حكومية؟</p>
+            <div class="radio-options-column">
+              <label class="gpc-radio-item">
+                <input type="radio" name="govApp" value="NO" checked>
+                <span><strong>لا</strong>، هذا التطبيق غير مرتبط بأي جهة حكومية</span>
+              </label>
+              <label class="gpc-radio-item">
+                <input type="radio" name="govApp" value="YES">
+                <span>نعم</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- الميزات المالية -->
+          <div class="field-group" style="max-width: 100%; padding-bottom: 16px; border-bottom: 1px solid var(--gpc-border-subtle);">
+            <label class="field-label">الميزات المالية</label>
+            <p class="field-subtext">هل يقدم تطبيقك أي خدمات مالية أو مصرفية أو قروض أو تداول عملات؟</p>
+            <div class="radio-options-column">
+              <label class="gpc-radio-item">
+                <input type="radio" name="financeApp" value="NO" checked>
+                <span><strong>لا</strong>، لا يحتوي تطبيقي على أي ميزات مالية</span>
+              </label>
+              <label class="gpc-radio-item">
+                <input type="radio" name="financeApp" value="YES">
+                <span>نعم</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- ميزات الصحة -->
+          <div class="field-group" style="max-width: 100%; margin-bottom: 0;">
+            <label class="field-label">تطبيقات الصحة</label>
+            <p class="field-subtext">هل يتضمن تطبيقك أي ميزات طبية أو صحية أو سريرية؟</p>
+            <div class="radio-options-column">
+              <label class="gpc-radio-item">
+                <input type="radio" name="healthApp" value="NO" checked>
+                <span><strong>لا</strong>، لا يحتوي تطبيقي على أي ميزات متعلقة بالصحة</span>
+              </label>
+              <label class="gpc-radio-item">
+                <input type="radio" name="healthApp" value="YES">
+                <span>نعم</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Task 10: اختيار فئة التطبيق وتقديم تفاصيل الاتصال -->
+        <div class="gpc-card">
+          <h2 class="card-section-title"><span class="task-badge-number">7</span> اختيار فئة التطبيق وتقديم تفاصيل الاتصال</h2>
+          <p class="field-subtext">تُعرض تفاصيل الاتصال هذه للمستخدمين على متجر Google Play.</p>
+
+          <div class="field-group">
+            <label for="storeCategory" class="field-label">فئة التطبيق على متجر Google Play</label>
+            <select id="storeCategory" class="gpc-select-input">
+              <option value="FOOD_AND_DRINK" selected>الأطعمة والمشروبات (Food & Drink)</option>
+              <option value="SHOPPING">التسوق (Shopping)</option>
+              <option value="BUSINESS">الأعمال (Business)</option>
+              <option value="TOOLS">الأدوات (Tools)</option>
+              <option value="EDUCATION">التعليم (Education)</option>
+              <option value="LIFESTYLE">أسلوب الحياة (Lifestyle)</option>
+              <option value="ENTERTAINMENT">الترفيه (Entertainment)</option>
+              <option value="COMMUNICATION">التواصل (Communication)</option>
+              <option value="PRODUCTIVITY">الإنتاجية (Productivity)</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="contactEmail" class="field-label">البريد الإلكتروني للتواصل (مطلوب) *</label>
+            <input type="email" id="contactEmail" class="gpc-text-input ltr-input" placeholder="support@example.com" value="support@createapp.com" required>
+          </div>
+
+          <div class="field-group">
+            <label for="contactPhone" class="field-label">رقم الهاتف (اختياري)</label>
+            <input type="tel" id="contactPhone" class="gpc-text-input ltr-input" placeholder="+9647700000000">
+          </div>
+
+          <div class="field-group" style="margin-bottom: 0;">
+            <label for="contactWebsite" class="field-label">الموقع الإلكتروني (اختياري)</label>
+            <input type="url" id="contactWebsite" class="gpc-text-input ltr-input" placeholder="https://example.com">
+          </div>
+
+          <div class="step-nav-bar">
+            <button type="button" class="btn-footer-cancel" id="backToStep3Btn">→ الرجوع للخطوة 3</button>
+            <button type="button" class="btn-footer-submit" id="completeStep4Btn">حفظ وإكمال المهام والمتابعة للخطوة 5 ←</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           PAGE 5: Main Store Listing Setup
+           (إعداد بطاقة بيانات المتجر الخاصة بك: الاسم، الوصف، الأيقونة، الصور)
+           ==================================================================== -->
+      <section class="gpc-view-panel" id="view-step-5">
+        <h1 class="page-main-title">إعداد بطاقة بيانات المتجر الخاصة بك</h1>
+        <p class="page-subtitle">أدخل وصف التطبيق وارفع الأيقونة ولقطات الشاشة ليتم إرسالها إلى متجر Google Play.</p>
+
+        <!-- Card 1: تفاصيل التطبيق النصية -->
+        <div class="gpc-card">
+          <h2 class="card-section-title">تفاصيل بطاقة المتجر</h2>
+
+          <div class="field-group" style="max-width: 100%;">
+            <label for="listingTitle" class="field-label">اسم التطبيق في المتجر *</label>
+            <div class="gpc-input-wrapper">
+              <input type="text" id="listingTitle" class="gpc-text-input" maxlength="30" placeholder="اسم التطبيق على المتجر">
+              <span class="char-counter-text" id="listingTitleCounter">0/30</span>
+            </div>
+          </div>
+
+          <div class="field-group" style="max-width: 100%;">
+            <label for="shortDescription" class="field-label">الوصف المختصر (Short Description) *</label>
+            <p class="field-subtext">ملخص سريع يظهر للمستخدمين أولاً في صفحة التطبيق على Google Play (حتى 80 حرفاً).</p>
+            <div class="gpc-input-wrapper">
+              <input type="text" id="shortDescription" class="gpc-text-input" maxlength="80" placeholder="تطبيق متكامل وسريع لإدارة الطلبات والخدمات بسهولة...">
+              <span class="char-counter-text" id="shortDescCounter">0/80</span>
+            </div>
+          </div>
+
+          <div class="field-group" style="max-width: 100%; margin-bottom: 0;">
+            <label for="fullDescription" class="field-label">الوصف الكامل (Full Description) *</label>
+            <p class="field-subtext">اشرح جميع مميزات وخصائص تطبيقك بالتفصيل (حتى 4000 حرف).</p>
+            <div class="gpc-input-wrapper">
+              <textarea id="fullDescription" class="gpc-textarea-input" maxlength="4000" rows="5" placeholder="اكتب الوصف الكامل للتطبيق ومميزاته هنا..."></textarea>
+              <span class="char-counter-text" id="fullDescCounter">0/4000</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: الرسومات والصور (Graphics) -->
+        <div class="gpc-card">
+          <h2 class="card-section-title">الرسومات والصور (الأيقونة ولقطات الشاشة)</h2>
+
+          <!-- App Icon 512x512 -->
+          <div class="field-group" style="max-width: 100%;">
+            <label class="field-label">أيقونة التطبيق (512 × 512 بكسل)</label>
+            <p class="field-subtext">ملف PNG أو JPEG بدقة 512×512 بكسل وبحجم يصل إلى 1 ميجابايت.</p>
+            <input type="file" id="iconFileInput" accept="image/png,image/jpeg" style="display: none;">
+            <div class="media-upload-container">
+              <div class="media-preview-box icon-preview" id="iconPreviewBox">
+                <span>512×512</span>
+              </div>
+              <div class="media-upload-action">
+                <button type="button" class="btn-choose-file" id="selectIconBtn" style="padding: 8px 18px; font-size: 13px;">رفع أيقونة التطبيق</button>
+                <span class="media-file-info" id="iconFileInfo">لم يتم اختيار صورة بعد</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feature Graphic 1024x500 -->
+          <div class="field-group" style="max-width: 100%;">
+            <label class="field-label">الصورة المميزة (Feature Graphic - 1024 × 500 بكسل)</label>
+            <p class="field-subtext">تظهر في أعلى صفحة المتجر الخاصة بتطبيقك.</p>
+            <input type="file" id="featureGraphicInput" accept="image/png,image/jpeg" style="display: none;">
+            <div class="media-upload-container">
+              <div class="media-preview-box banner-preview" id="featureGraphicPreviewBox">
+                <span>1024 × 500</span>
+              </div>
+              <div class="media-upload-action">
+                <button type="button" class="btn-choose-file" id="selectFeatureGraphicBtn" style="padding: 8px 18px; font-size: 13px;">رفع الصورة المميزة</button>
+                <span class="media-file-info" id="featureGraphicInfo">لم يتم اختيار صورة بعد</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phone Screenshots -->
+          <div class="field-group" style="max-width: 100%; margin-bottom: 0;">
+            <label class="field-label">لقطات شاشة الهاتف (2 إلى 8 صور)</label>
+            <p class="field-subtext">حمّل ما بين 2 إلى 8 لقطات شاشة لواجهات التطبيق.</p>
+            <input type="file" id="screenshotsInput" accept="image/png,image/jpeg" multiple style="display: none;">
+            <div style="margin-bottom: 12px;">
+              <button type="button" class="btn-choose-file" id="selectScreenshotsBtn" style="padding: 8px 18px; font-size: 13px;">إضافة لقطات شاشة الهاتف</button>
+            </div>
+            <div class="screenshots-gallery" id="screenshotsGallery">
+              <span class="empty-gallery-note">لم تتم إضافة لقطات شاشة بعد.</span>
+            </div>
+          </div>
+
+          <div class="step-nav-bar">
+            <button type="button" class="btn-footer-cancel" id="backToStep4Btn">→ الرجوع للخطوة 4</button>
+            <button type="button" class="btn-footer-submit" id="completeStep5Btn">حفظ بطاقة المتجر والمتابعة للخطوة 6 (الأخيرة) ←</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           PAGE 6: Release App & Send All Changes for Review
+           (إصدار التطبيق واختيار الإصدار المرفوع وإرسال جميع التغييرات للمراجعة)
+           ==================================================================== -->
+      <section class="gpc-view-panel" id="view-step-6">
+        <h1 class="page-main-title">إصدار التطبيق وإرسال التغييرات للمراجعة</h1>
+        <p class="page-subtitle">اختر الإصدار الذي قمت برفعه، وحدد المسار والبلدان، ثم اضغط على إرسال جميع التغييرات للمراجعة.</p>
+
+        <!-- Card 1: ملخص حالة المهام السابقة -->
+        <div class="gpc-card">
+          <h2 class="card-section-title">ملخص جاهزية التطبيق والخطوات المكتملة</h2>
+          <div class="summary-cards-grid">
+            <div class="summary-box">
+              <div class="summary-box-header">
+                <span class="status-indicator-green">✔</span>
+                <strong>1. بيانات التطبيق والحزمة</strong>
+              </div>
+              <div class="summary-box-body">
+                <div>الاسم: <span id="sumAppName">-</span></div>
+                <div>الحزمة: <span id="sumPackageName" style="direction: ltr; font-family: var(--gpc-font-mono);">-</span></div>
+              </div>
+            </div>
+
+            <div class="summary-box">
+              <div class="summary-box-header">
+                <span class="status-indicator-green">✔</span>
+                <strong>2. ملف الإصدار المرفوع</strong>
+              </div>
+              <div class="summary-box-body">
+                <div>الملف: <span id="sumFileName">لم يتم اختيار ملف بعد</span></div>
+                <div>كود الإصدار: <span id="sumVersionCode">-</span></div>
+              </div>
+            </div>
+
+            <div class="summary-box">
+              <div class="summary-box-header">
+                <span class="status-indicator-green">✔</span>
+                <strong>3 & 4. السياسات والأمان</strong>
+              </div>
+              <div class="summary-box-body">
+                <div>سياسة الخصوصية والتقييم: مكتمل</div>
+                <div>الحكومية / المالية / الصحة: لا (تلقائي)</div>
+              </div>
+            </div>
+
+            <div class="summary-box">
+              <div class="summary-box-header">
+                <span class="status-indicator-green">✔</span>
+                <strong>5. بطاقة بيانات المتجر</strong>
+              </div>
+              <div class="summary-box-body">
+                <div>الوصف والبيانات: جاهز</div>
+                <div>الصور المرفقة: <span id="sumMediaCount">0</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: اختيار الإصدار المرفوع وإعدادات الإطلاق -->
+        <div class="gpc-card highlight-card">
+          <h2 class="card-section-title">اختيار الإصدار وإرسال التغييرات للمراجعة</h2>
+
+          <form id="publishForm">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-bottom: 18px;">
+              <div>
+                <label for="releaseUploadedSelect" class="field-label">الإصدار المرفوع المراد إطلاقه:</label>
+                <select id="releaseUploadedSelect" class="gpc-select-input" required>
+                  <option value="">يرجى رفع ملف الحزمة في الخطوة 2 أولاً</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="publishPackageSelect" class="field-label">اسم الحزمة المستهدفة على الكونسول:</label>
+                <select id="publishPackageSelect" class="gpc-select-input" required></select>
+              </div>
+
+              <div>
+                <label for="publishTrackSelect" class="field-label">مسار الإطلاق (Track):</label>
+                <select id="publishTrackSelect" class="gpc-select-input">
+                  <option value="production" selected>قناة الإنتاج الرسمي (Production)</option>
+                  <option value="internal">مسار الاختبار الداخلي (Internal Testing)</option>
+                  <option value="alpha">مسار الاختبار المغلق (Closed Testing)</option>
+                  <option value="beta">مسار الاختبار المفتوح (Open Testing)</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="countriesSelect" class="field-label">البلدان والمناطق المستهدفة:</label>
+                <select id="countriesSelect" class="gpc-select-input">
+                  <option value="ALL" selected>جميع البلدان والمناطق (177 بلداً ومنطقة)</option>
+                  <option value="ARAB">الدول العربية والشرق الأوسط</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 22px;">
+              <label for="publishNotes" class="field-label">ملاحظات الإصدار (Release Notes):</label>
+              <textarea id="publishNotes" class="gpc-textarea-input" rows="3">إصدار جديد يتضمن جميع المزايا والتحديثات المعتمدة.</textarea>
+            </div>
+
+            <div class="step-nav-bar" style="border-top-color: var(--gpc-border);">
+              <button type="button" class="btn-footer-cancel" id="backToStep5Btn">→ الرجوع للخطوة 5</button>
+              <button type="submit" class="btn-primary-launch" id="btnPublishToPlay">
+                <span>🚀 إرسال جميع التغييرات للمراجعة ونشر التطبيق</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- Sticky Bottom Bar for Step 1 -->
+  <footer class="gpc-sticky-footer-bar" id="stickyBottomBar">
+    <div class="footer-actions-container">
+      <button type="button" class="btn-footer-cancel" id="cancelBtn">إلغاء</button>
+      <button type="button" class="btn-footer-submit" id="submitCreateAppBtn" disabled>إنشاء تطبيق</button>
+    </div>
+  </footer>
+
+  <!-- Realtime Google Play API Publishing Modal -->
+  <div class="modal-backdrop-gpc" id="publishModal" style="display: none;">
+    <div class="modal-dialog-gpc">
+      <div class="modal-header-gpc">
+        <h3 class="modal-title-gpc" id="modalHeaderTitle">جاري إرسال جميع التغييرات ونشر التطبيق إلى Google Play...</h3>
+        <button type="button" class="header-icon-btn" id="closePublishModalBtn" style="display: none;">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13.5px;">
+        <div id="pstep1" style="display: flex; align-items: center; gap: 8px;">
+          <span>⏳</span>
+          <span>التحقق من صحة الملف والمهام وصلاحيات حساب الخدمة</span>
+        </div>
+        <div id="pstep2" style="display: flex; align-items: center; gap: 8px;">
+          <span>⏳</span>
+          <span>فتح معاملة تحرير جديدة في Google Play Console (Edit Transaction)</span>
+        </div>
+        <div id="pstep3" style="display: flex; align-items: center; gap: 8px;">
+          <span>⏳</span>
+          <span>رفع حزمة التطبيق (AAB/APK) وتحديث بطاقة المتجر والصور</span>
+        </div>
+        <div id="pstep4" style="display: flex; align-items: center; gap: 8px;">
+          <span>⏳</span>
+          <span>تعيين الإصدار للمسار المحدد وإرسال جميع التغييرات للمراجعة (Commit Edit)</span>
+        </div>
+      </div>
+
+      <div class="modal-logs-box" id="publishLogs"></div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 14px;" id="publishModalActions" style="display: none;">
+        <a href="#" target="_blank" class="btn-footer-submit" id="openInConsoleLink" style="text-decoration: none; display: inline-flex; align-items: center;">
+          <span>فتح الإصدار في Google Play Console ↗</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261104-locked"></script>
+</body>
+</html>
