@@ -58,74 +58,135 @@ async function testPlayConnection(packageName = 'com.alfagate.gym') {
 }
 
 /**
- * Checks if an application exists in the developer account and retrieves its current info
+ * Inspects if a package already exists in the developer account and fetches its current state
+ * (bundles, details, store listings, images, tracks) so the user can jump directly to remaining steps.
  */
-async function checkAppStatus(packageName) {
-  if (!packageName) return { existsInAccount: false };
+async function inspectExistingAppInAccount(packageName) {
   try {
     const play = getPlayClient();
     const edit = await play.edits.insert({ packageName });
     const editId = edit.data.id;
 
-    let listings = [];
+    let hasBundle = false;
+    let latestVersionCode = null;
+    let latestSha256 = null;
     let details = {};
-    let tracks = [];
-    let bundles = [];
+    let listing = {};
+    let images = { iconCount: 0, featureGraphicCount: 0, screenshotsCount: 0 };
 
     try {
-      const resList = await play.edits.listings.list({ packageName, editId });
-      listings = resList.data.listings || [];
+      const bundlesRes = await play.edits.bundles.list({ packageName, editId });
+      const bundles = bundlesRes.data.bundles || [];
+      if (bundles.length > 0) {
+        hasBundle = true;
+        const lastBundle = bundles[bundles.length - 1];
+        latestVersionCode = lastBundle.versionCode;
+        latestSha256 = lastBundle.sha256;
+      }
+    } catch (_) {}
+
+    if (!hasBundle) {
+      try {
+        const apksRes = await play.edits.apks.list({ packageName, editId });
+        const apks = apksRes.data.apks || [];
+        if (apks.length > 0) {
+          hasBundle = true;
+          const lastApk = apks[apks.length - 1];
+          latestVersionCode = lastApk.versionCode;
+          latestSha256 = lastApk.binary?.sha256;
+        }
+      } catch (_) {}
+    }
+
+    try {
+      const detailsRes = await play.edits.details.get({ packageName, editId });
+      details = detailsRes.data || {};
+    } catch (_) {}
+
+    const defaultLang = details.defaultLanguage || 'ar';
+
+    try {
+      const listingsRes = await play.edits.listings.list({ packageName, editId });
+      const listings = listingsRes.data.listings || [];
+      if (listings.length > 0) {
+        const matched = listings.find(l => l.language === defaultLang) || listings[0];
+        listing = {
+          language: matched.language,
+          title: matched.title || '',
+          shortDescription: matched.shortDescription || '',
+          fullDescription: matched.fullDescription || ''
+        };
+      }
+    } catch (_) {}
+
+    const imgLang = listing.language || defaultLang;
+    try {
+      const iconRes = await play.edits.images.list({ packageName, editId, language: imgLang, imageType: 'icon' });
+      images.iconCount = (iconRes.data.images || []).length;
     } catch (_) {}
 
     try {
-      const resDet = await play.edits.details.get({ packageName, editId });
-      details = resDet.data || {};
+      const fgRes = await play.edits.images.list({ packageName, editId, language: imgLang, imageType: 'featureGraphic' });
+      images.featureGraphicCount = (fgRes.data.images || []).length;
     } catch (_) {}
 
     try {
-      const resTr = await play.edits.tracks.list({ packageName, editId });
-      tracks = resTr.data.tracks || [];
-    } catch (_) {}
-
-    try {
-      const resBun = await play.edits.bundles.list({ packageName, editId });
-      bundles = resBun.data.bundles || [];
+      const shotsRes = await play.edits.images.list({ packageName, editId, language: imgLang, imageType: 'phoneScreenshots' });
+      images.screenshotsCount = (shotsRes.data.images || []).length;
     } catch (_) {}
 
     await play.edits.delete({ packageName, editId }).catch(() => {});
 
-    // Primary listing info
-    const primaryListing = listings.find(l => l.language === 'ar') || listings[0] || {};
+    // Determine which steps are already completed on Google Play Console
+    const completedStepsOnConsole = [1]; // Step 1 (App creation) is definitely done since package exists in account
+    if (hasBundle) {
+      completedStepsOnConsole.push(2); // Step 2 (Bundle upload) is already done
+    }
+    if (details.contactEmail) {
+      completedStepsOnConsole.push(4);
+    }
+    if (listing.title && listing.shortDescription && listing.fullDescription) {
+      completedStepsOnConsole.push(5);
+    }
+
+    // Find the first remaining incomplete step (between 2 and 6)
+    let nextRemainingStep = 2;
+    for (let s = 2; s <= 6; s++) {
+      if (!completedStepsOnConsole.includes(s)) {
+        nextRemainingStep = s;
+        break;
+      }
+    }
 
     return {
       existsInAccount: true,
       packageName,
-      title: primaryListing.title || '',
-      shortDescription: primaryListing.shortDescription || '',
-      fullDescription: primaryListing.fullDescription || '',
-      contactEmail: details.contactEmail || '',
-      contactPhone: details.contactPhone || '',
-      contactWebsite: details.contactWebsite || '',
-      defaultLanguage: details.defaultLanguage || 'ar',
-      bundlesCount: bundles.length,
-      hasReleases: bundles.length > 0 || tracks.some(t => t.releases && t.releases.length > 0),
-      tracksCount: tracks.length
+      hasBundle,
+      latestVersionCode,
+      latestSha256,
+      details,
+      listing,
+      images,
+      completedStepsOnConsole,
+      nextRemainingStep
     };
   } catch (error) {
-    const msg = error.message || '';
-    if (msg.includes('Package not found') || msg.includes('404')) {
-      return { existsInAccount: false, packageName };
-    }
-    return { existsInAccount: false, packageName, error: msg };
+    return {
+      existsInAccount: false,
+      packageName,
+      error: error.message
+    };
   }
 }
 
 /**
- * Uploads an AAB or APK bundle, updates store listing/details/images if provided, and publishes to a track
+ * Uploads an AAB or APK bundle (or uses existing versionCode if already uploaded),
+ * updates store listing/details/images if provided, and publishes to a track.
  */
 async function publishAppPackage({
   filePath = null,
-  fileName = null,
+  fileName = '',
+  existingVersionCode = null,
   packageName,
   track = 'internal',
   releaseNotes = 'تحديث جديد تم رفعه وفحصه عبر المنصة.',
@@ -135,20 +196,19 @@ async function publishAppPackage({
   imageFiles = null
 }) {
   const play = getPlayClient();
-  const hasFile = Boolean(filePath && fileName);
-  const isAab = hasFile && (fileName.toLowerCase().endsWith('.aab') || filePath.toLowerCase().endsWith('.aab'));
   
-  console.log(`[Google Play API] بدء عملية النشر والتحديث: ${packageName} (ملف جديد: ${hasFile ? (isAab ? 'AAB' : 'APK') : 'لا، تحديث بيانات ومحتوى فقط'})`);
+  console.log(`[Google Play API] بدء عملية النشر وإرسال التغييرات: ${packageName} (المسار: ${track})`);
 
   const edit = await play.edits.insert({ packageName });
   const editId = edit.data.id;
   console.log(`[Google Play API] تم فتح معاملة تحرير برقم: ${editId}`);
 
   try {
-    let versionCode = null;
+    let versionCode = existingVersionCode;
     let sha256 = null;
 
-    if (hasFile) {
+    if (filePath && fs.existsSync(filePath)) {
+      const isAab = fileName.toLowerCase().endsWith('.aab') || filePath.toLowerCase().endsWith('.aab');
       if (isAab) {
         console.log(`[Google Play API] جاري رفع حزمة AAB إلى Google Play...`);
         const res = await play.edits.bundles.upload({
@@ -176,6 +236,16 @@ async function publishAppPackage({
         sha256 = res.data.binary?.sha256;
         console.log(`[Google Play API] اكتمل رفع الـ APK بنجاح! كود الإصدار: ${versionCode}`);
       }
+    } else if (!versionCode) {
+      // Check if there is an existing bundle in the account
+      try {
+        const bundlesRes = await play.edits.bundles.list({ packageName, editId });
+        const bundles = bundlesRes.data.bundles || [];
+        if (bundles.length > 0) {
+          versionCode = bundles[bundles.length - 1].versionCode;
+          sha256 = bundles[bundles.length - 1].sha256;
+        }
+      } catch (_) {}
     }
 
     // Optional: Update App Details (Contact Email, Phone, Website, Default Language)
@@ -316,7 +386,7 @@ async function publishAppPackage({
     return {
       success: true,
       packageName,
-      versionCode,
+      versionCode: versionCode || 'محدث',
       sha256,
       track,
       commitId: commitRes.data.id,
@@ -333,6 +403,6 @@ async function publishAppPackage({
 
 module.exports = {
   testPlayConnection,
-  checkAppStatus,
+  inspectExistingAppInAccount,
   publishAppPackage
 };

@@ -5,17 +5,15 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { checkPackageAvailability } = require('./package-checker');
-const { testPlayConnection, checkAppStatus, publishAppPackage } = require('./play-publisher');
+const {
+  testPlayConnection,
+  inspectExistingAppInAccount,
+  publishAppPackage
+} = require('./play-publisher');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DEVELOPER_ID = process.env.DEVELOPER_ID || '8679275296222021944';
-
-const KNOWN_APPS = [
-  { name: 'جوكر بلس - شريك المطاعم', package: 'com.jokerpls.restaurantpartner' },
-  { name: 'ALFA GATE - كورس الجيم والمدرب', package: 'com.alfagate.gym' },
-  { name: 'دولار العراق', package: 'com.app.wrapper' }
-];
 
 // Setup upload directory
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
@@ -50,6 +48,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+const KNOWN_ACCOUNT_APPS = [
+  { name: 'ALFA GATE - كورس الجيم والمدرب', package: 'com.alfagate.gym' },
+  { name: 'دولار العراق', package: 'com.app.wrapper' },
+  { name: 'جوكر بلس - شريك المطاعم', package: 'com.jokerpls.restaurantpartner' }
+];
+
 // 1. Developer Account & Service Account Status
 app.get('/api/account-info', async (req, res) => {
   const serviceAccountExists = Boolean(process.env.SERVICE_ACCOUNT_JSON) || fs.existsSync(path.join(__dirname, 'service-account.json'));
@@ -65,11 +69,11 @@ app.get('/api/account-info', async (req, res) => {
     serviceAccountConfigured: serviceAccountExists,
     serviceEmail: 'play-api-access@play-api-513517.iam.gserviceaccount.com',
     connection: connectionStatus,
-    knownApps: KNOWN_APPS
+    knownApps: KNOWN_ACCOUNT_APPS
   });
 });
 
-// 2. Check Package Name Availability on Google Play Store (Public)
+// 2. Check Package Name Availability & Account Existence
 app.post('/api/check-package', async (req, res) => {
   try {
     const { packageName } = req.body;
@@ -78,55 +82,61 @@ app.post('/api/check-package', async (req, res) => {
     }
 
     const result = await checkPackageAvailability(packageName);
-    res.json(result);
+    const accountCheck = await inspectExistingAppInAccount(packageName);
+    const isKnownInAccount = KNOWN_ACCOUNT_APPS.some(a => a.package.toLowerCase() === packageName.toLowerCase());
+
+    res.json({
+      ...result,
+      existsInAccount: accountCheck.existsInAccount || isKnownInAccount,
+      accountAppState: accountCheck.existsInAccount ? accountCheck : null
+    });
   } catch (error) {
     console.error('Error in /api/check-package:', error);
     res.status(500).json({ error: 'حدث خطأ أثناء فحص الحزمة' });
   }
 });
 
-// 2.1 Check if App Already Exists in the Connected Developer Account
-app.all('/api/app-status/:packageName?', async (req, res) => {
-  const pkg = (req.params.packageName || req.body.packageName || req.query.packageName || '').trim();
-  if (!pkg) {
-    return res.status(400).json({ error: 'اسم الحزمة مطلوب' });
-  }
-
-  // 1. Check with Google Play API
-  let playStatus = { existsInAccount: false };
+// 2b. Inspect Existing App in Developer Account (Fetches completed steps & metadata)
+app.post('/api/inspect-app', async (req, res) => {
   try {
-    playStatus = await checkAppStatus(pkg);
-  } catch (_) {}
+    const { packageName, appName } = req.body;
+    if (!packageName) {
+      return res.status(400).json({ error: 'اسم الحزمة مطلوب' });
+    }
 
-  // 2. Check if registered locally in knownApps list
-  const localMatch = KNOWN_APPS.find(a => a.package.toLowerCase() === pkg.toLowerCase());
+    const accountState = await inspectExistingAppInAccount(packageName);
+    const matchedKnown = KNOWN_ACCOUNT_APPS.find(
+      a => a.package.toLowerCase() === packageName.toLowerCase() ||
+           (appName && a.name.toLowerCase() === appName.trim().toLowerCase())
+    );
 
-  if (playStatus && playStatus.existsInAccount) {
-    return res.json({
-      existsInAccount: true,
-      source: 'google-play-api',
-      name: playStatus.title || (localMatch ? localMatch.name : pkg),
-      ...playStatus
+    if (accountState.existsInAccount) {
+      return res.json(accountState);
+    }
+
+    // Fallback if recognized in known account apps list
+    if (matchedKnown) {
+      return res.json({
+        existsInAccount: true,
+        packageName: matchedKnown.package,
+        hasBundle: false,
+        latestVersionCode: null,
+        details: { defaultLanguage: 'ar' },
+        listing: { title: matchedKnown.name, shortDescription: '', fullDescription: '' },
+        images: { iconCount: 0, featureGraphicCount: 0, screenshotsCount: 0 },
+        completedStepsOnConsole: [1],
+        nextRemainingStep: 2
+      });
+    }
+
+    res.json({
+      existsInAccount: false,
+      packageName
     });
+  } catch (error) {
+    console.error('Error in /api/inspect-app:', error);
+    res.status(500).json({ existsInAccount: false, error: error.message });
   }
-
-  if (localMatch) {
-    return res.json({
-      existsInAccount: true,
-      source: 'local-registry',
-      name: localMatch.name,
-      packageName: localMatch.package,
-      title: localMatch.name,
-      shortDescription: '',
-      fullDescription: '',
-      hasReleases: true
-    });
-  }
-
-  return res.json({
-    existsInAccount: false,
-    packageName: pkg
-  });
 });
 
 // Helper to clean up uploaded temp files
@@ -153,13 +163,9 @@ app.post('/api/upload-package', multiUpload, async (req, res) => {
   const files = req.files || {};
   const uploadedFile = files.packageFile ? files.packageFile[0] : null;
 
-  if (!uploadedFile && !req.body.storeListingJson && !req.body.appDetailsJson) {
-    cleanupFiles(files);
-    return res.status(400).json({ error: 'لم يتم استلام ملف حزمة التطبيق أو بيانات التحديث' });
-  }
-
   const {
     packageName,
+    existingVersionCode,
     track = 'internal',
     releaseNotes = 'تحديث جديد تم رفعه وفحصه عبر المنصة.',
     releaseStatus = 'completed',
@@ -170,6 +176,11 @@ app.post('/api/upload-package', multiUpload, async (req, res) => {
   if (!packageName) {
     cleanupFiles(files);
     return res.status(400).json({ error: 'اسم الحزمة (Package Name) مطلوب للنشر' });
+  }
+
+  if (!uploadedFile && !existingVersionCode) {
+    cleanupFiles(files);
+    return res.status(400).json({ error: 'لم يتم استلام ملف حزمة التطبيق (.aab أو .apk)' });
   }
 
   let storeListing = null;
@@ -187,12 +198,13 @@ app.post('/api/upload-package', multiUpload, async (req, res) => {
     if (uploadedFile) {
       console.log(`[Server] استلام ملف: ${uploadedFile.originalname} (${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)`);
     } else {
-      console.log(`[Server] تحديث بيانات بطاقة المتجر والمحتوى للحزمة: ${packageName}`);
+      console.log(`[Server] تحديث تطبيق موجود بالحساب (${packageName}) بالإصدار رقم: ${existingVersionCode}`);
     }
 
     const result = await publishAppPackage({
       filePath: uploadedFile ? uploadedFile.path : null,
-      fileName: uploadedFile ? uploadedFile.originalname : null,
+      fileName: uploadedFile ? uploadedFile.originalname : '',
+      existingVersionCode: existingVersionCode || null,
       packageName,
       track,
       releaseNotes,
