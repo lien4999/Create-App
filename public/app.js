@@ -29,6 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const stickyBottomBar = document.getElementById('stickyBottomBar');
 
   // DOM Elements - Step 1: Create App
+  const existingAppSelect = document.getElementById('existingAppSelect');
+  const existingAppBanner = document.getElementById('existingAppBanner');
+  const existingAppTitle = document.getElementById('existingAppTitle');
+  const existingAppDesc = document.getElementById('existingAppDesc');
+  const btnFastForwardContent = document.getElementById('btnFastForwardContent');
+  const btnFastForwardUpload = document.getElementById('btnFastForwardUpload');
+  let detectedExistingApp = null;
+  let checkAppTimer = null;
+
   const appName = document.getElementById('appName');
   const appNameCounter = document.getElementById('appNameCounter');
   const packageName = document.getElementById('packageName');
@@ -298,7 +307,157 @@ document.addEventListener('DOMContentLoaded', () => {
   packageName.addEventListener('input', () => {
     packageNameCounter.textContent = `${packageName.value.length}/150`;
     validateStep1();
+
+    clearTimeout(checkAppTimer);
+    checkAppTimer = setTimeout(() => {
+      checkAppInAccount(packageName.value.trim());
+    }, 400);
   });
+
+  // Fast-Forward Handler to skip to remaining steps for existing apps
+  function fastForwardTo(targetStep) {
+    const chosenName = appName.value.trim() || (existingAppTitle && existingAppTitle.textContent) || 'تطبيق مسجل';
+    const chosenPackage = packageName.value.trim();
+
+    if (!chosenPackage) {
+      alert('يرجى كتابة أو اختيار اسم الحزمة أولاً.');
+      packageName.focus();
+      return;
+    }
+
+    if (!appName.value.trim() && existingAppTitle && existingAppTitle.textContent) {
+      appName.value = existingAppTitle.textContent;
+      appNameCounter.textContent = `${appName.value.length}/30`;
+    }
+
+    if (!listingTitle.value.trim()) {
+      listingTitle.value = appName.value.trim() || chosenName;
+      listingTitleCounter.textContent = `${listingTitle.value.length}/30`;
+    }
+
+    populatePackageSelect(chosenPackage);
+
+    // 1. Mark Step 1 complete
+    markStepCompleted(1);
+
+    // 2. If jumping directly to Step 3 (Content & Policies), mark Step 2 complete as well!
+    if (targetStep >= 3) {
+      markStepCompleted(2);
+
+      // Populate Step 6 release selector with existing build note
+      releaseUploadedSelect.innerHTML = '';
+      const opt = document.createElement('option');
+      opt.value = 'CONSOLE_ACTIVE_RELEASE';
+      opt.textContent = `الإصدار الحالي المرفوع على Google Play Console (${chosenPackage})`;
+      opt.selected = true;
+      releaseUploadedSelect.appendChild(opt);
+
+      sumFileName.textContent = 'الإصدار المرفوع في Google Play Console';
+      sumVersionCode.textContent = 'الإصدار المعتمد في الكونسول';
+    }
+
+    goToStep(targetStep);
+  }
+
+  if (btnFastForwardContent) {
+    btnFastForwardContent.addEventListener('click', () => fastForwardTo(3));
+  }
+
+  if (btnFastForwardUpload) {
+    btnFastForwardUpload.addEventListener('click', () => fastForwardTo(2));
+  }
+
+  // Quick App Selector Change Handler
+  if (existingAppSelect) {
+    existingAppSelect.addEventListener('change', () => {
+      const selectedPkg = existingAppSelect.value;
+      if (!selectedPkg) {
+        existingAppBanner.style.display = 'none';
+        detectedExistingApp = null;
+        return;
+      }
+
+      packageName.value = selectedPkg;
+      packageNameCounter.textContent = `${selectedPkg.length}/150`;
+
+      const selectedOpt = existingAppSelect.options[existingAppSelect.selectedIndex];
+      const optText = selectedOpt.textContent.split('(')[0].trim();
+      if (optText) {
+        appName.value = optText;
+        appNameCounter.textContent = `${optText.length}/30`;
+        listingTitle.value = optText;
+        listingTitleCounter.textContent = `${optText.length}/30`;
+      }
+
+      policyAgreement.checked = true;
+      exportAgreement.checked = true;
+      validateStep1();
+
+      checkAppInAccount(selectedPkg);
+    });
+  }
+
+  async function checkAppInAccount(pkg) {
+    if (!pkg || pkg.length < 4) {
+      if (existingAppBanner) existingAppBanner.style.display = 'none';
+      detectedExistingApp = null;
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/app-status/${encodeURIComponent(pkg)}`);
+      const data = await res.json();
+
+      if (data && data.existsInAccount) {
+        detectedExistingApp = data;
+        if (existingAppTitle) existingAppTitle.textContent = data.title || data.name || pkg;
+        if (existingAppDesc) {
+          existingAppDesc.textContent = `التطبيق مسجل ومتاح بالفعل داخل حسابك المطور (${data.name || pkg}). يمكنك المتابعة مباشرة لإكمال إعداد محتوى التطبيق وسياساته دون الحاجة لإعادة الخطوات السابقة!`;
+        }
+        if (existingAppBanner) existingAppBanner.style.display = 'block';
+
+        if (!appName.value.trim() && (data.title || data.name)) {
+          appName.value = data.title || data.name;
+          appNameCounter.textContent = `${appName.value.length}/30`;
+        }
+
+        if (data.shortDescription && !shortDescription.value.trim()) {
+          shortDescription.value = data.shortDescription;
+          shortDescCounter.textContent = `${shortDescription.value.length}/80`;
+        }
+        if (data.fullDescription && !fullDescription.value.trim()) {
+          fullDescription.value = data.fullDescription;
+          fullDescCounter.textContent = `${fullDescription.value.length}/4000`;
+        }
+        if (data.contactEmail && !contactEmail.value.trim()) {
+          contactEmail.value = data.contactEmail;
+        }
+        if (data.contactWebsite && !contactWebsite.value.trim()) {
+          contactWebsite.value = data.contactWebsite;
+        }
+
+        policyAgreement.checked = true;
+        exportAgreement.checked = true;
+        validateStep1();
+      } else {
+        if (existingAppBanner) existingAppBanner.style.display = 'none';
+        detectedExistingApp = null;
+      }
+    } catch (_) {
+      const local = accountInfo?.knownApps?.find(a => a.package.toLowerCase() === pkg.toLowerCase());
+      if (local) {
+        detectedExistingApp = local;
+        if (existingAppTitle) existingAppTitle.textContent = local.name;
+        if (existingAppBanner) existingAppBanner.style.display = 'block';
+        policyAgreement.checked = true;
+        exportAgreement.checked = true;
+        validateStep1();
+      } else {
+        if (existingAppBanner) existingAppBanner.style.display = 'none';
+        detectedExistingApp = null;
+      }
+    }
+  }
 
   policyAgreement.addEventListener('change', validateStep1);
   exportAgreement.addEventListener('change', validateStep1);
@@ -366,17 +525,35 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/account-info');
       accountInfo = await res.json();
       populatePackageSelect();
+      populateExistingAppPicker();
     } catch (err) {
       console.warn('Could not load account info:', err);
     }
   }
 
+  function populateExistingAppPicker() {
+    if (!existingAppSelect) return;
+    existingAppSelect.innerHTML = '<option value="">-- أو اختر تطبيقاً مسجلاً في حسابك --</option>';
+    const known = accountInfo?.knownApps || [
+      { name: 'جوكر بلس - شريك المطاعم', package: 'com.jokerpls.restaurantpartner' },
+      { name: 'ALFA GATE - كورس الجيم والمدرب', package: 'com.alfagate.gym' },
+      { name: 'دولار العراق', package: 'com.app.wrapper' }
+    ];
+
+    known.forEach(app => {
+      const opt = document.createElement('option');
+      opt.value = app.package;
+      opt.textContent = `${app.name} (${app.package})`;
+      existingAppSelect.appendChild(opt);
+    });
+  }
+
   function populatePackageSelect(detectedPackage) {
     publishPackageSelect.innerHTML = '';
     const known = accountInfo?.knownApps || [
+      { name: 'جوكر بلس - شريك المطاعم', package: 'com.jokerpls.restaurantpartner' },
       { name: 'ALFA GATE - كورس الجيم والمدرب', package: 'com.alfagate.gym' },
-      { name: 'دولار العراق', package: 'com.app.wrapper' },
-      { name: 'جوكر بلس - شريك المطاعم', package: 'com.jokerpls.restaurantpartner' }
+      { name: 'دولار العراق', package: 'com.app.wrapper' }
     ];
 
     if (detectedPackage && !known.find(k => k.package === detectedPackage)) {
@@ -798,7 +975,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   publishForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!currentFile || !analysisResult) {
+    if (!currentFile && !detectedExistingApp) {
       alert('يرجى رفع وفحص ملف حزمة التطبيق (.aab أو .apk) في الخطوة 2 أولاً.');
       goToStep(2);
       return;
@@ -830,7 +1007,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setPStep(pstep1, 'active');
     logModal(`[العميل] بدء إرسال جميع التغييرات للمراجعة للحزمة: ${selectedPackage}`);
-    logModal(`[العميل] الإصدار المحدد: ${currentFile.name} (${analysisResult.fileSizeMb} MB)`);
+    if (currentFile && analysisResult) {
+      logModal(`[العميل] الإصدار المحدد: ${currentFile.name} (${analysisResult.fileSizeMb} MB)`);
+    } else {
+      logModal(`[العميل] الإصدار المحدد: الإصدار المعتمد مسبقاً في Google Play Console`);
+    }
     logModal(`[العميل] الإقرارات التلقائية: الحكومية (لا) | المالية (لا) | الصحة (لا)`);
 
     await wait(500);
@@ -840,7 +1021,9 @@ document.addEventListener('DOMContentLoaded', () => {
     logModal(`[Google Play API] فتح معاملة تحرير جديدة (Insert Edit)...`);
 
     const formData = new FormData();
-    formData.append('packageFile', currentFile);
+    if (currentFile) {
+      formData.append('packageFile', currentFile);
+    }
     formData.append('packageName', selectedPackage);
     formData.append('track', selectedTrack);
     formData.append('releaseNotes', releaseNotesText);
@@ -861,7 +1044,11 @@ document.addEventListener('DOMContentLoaded', () => {
       await wait(700);
       setPStep(pstep2, 'done');
       setPStep(pstep3, 'active');
-      logModal(`[Google Play API] جاري رفع حزمة ${analysisResult.fileType} وتحديث بطاقة المتجر والصور...`);
+      if (currentFile && analysisResult) {
+        logModal(`[Google Play API] جاري رفع حزمة ${analysisResult.fileType} وتحديث بطاقة المتجر والصور...`);
+      } else {
+        logModal(`[Google Play API] جاري تحديث بطاقة بيانات المتجر والوسائط والتفاصيل في Google Play...`);
+      }
 
       const response = await fetch('/api/upload-package', {
         method: 'POST',
@@ -876,8 +1063,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       setPStep(pstep3, 'done');
       setPStep(pstep4, 'active');
-      logModal(`[Google Play API] تم تأكيد كود الإصدار: ${result.versionCode}`);
-      logModal(`[Google Play API] تعيين الإصدار إلى المسار: ${result.track}`);
+      if (result.versionCode) {
+        logModal(`[Google Play API] تم تأكيد كود الإصدار: ${result.versionCode}`);
+        logModal(`[Google Play API] تعيين الإصدار إلى المسار: ${result.track}`);
+      }
       logModal(`[Google Play API] إرسال جميع التغييرات للمراجعة والالتزام (Commit Edit)...`);
 
       await wait(600);

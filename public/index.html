@@ -173,6 +173,15 @@
         <div class="gpc-card">
           <h2 class="card-section-title">تفاصيل التطبيق</h2>
 
+          <!-- Existing Apps Quick Picker -->
+          <div class="field-group existing-apps-picker-group" style="max-width: 100%;">
+            <label for="existingAppSelect" class="field-label">⚡ اختيار تطبيق موجود بالفعل في حسابك المطور (اختياري)</label>
+            <p class="field-subtext">إذا كان التطبيق مسجلاً مسبقاً في حسابك، اختره من هنا للانتقال مباشرة للخطوات المتبقية دون الحاجة للبدء من جديد:</p>
+            <select id="existingAppSelect" class="gpc-select-input">
+              <option value="">-- أو اختر تطبيقاً مسجلاً في حسابك --</option>
+            </select>
+          </div>
+
           <!-- Field: اسم التطبيق -->
           <div class="field-group">
             <label for="appName" class="field-label">اسم التطبيق</label>
@@ -190,8 +199,26 @@
               <input type="text" id="packageName" class="gpc-text-input ltr-input" maxlength="150" placeholder="" required>
               <span class="char-counter-text" id="packageNameCounter">0/150</span>
             </div>
-            <button type="button" class="btn-text-link" id="checkPackageBtn">التحقق من التوفّر</button>
+            <button type="button" class="btn-text-link" id="checkPackageBtn">التحقق من التوفّر في المتجر</button>
             <div class="package-status-notice" id="packageStatusNotice"></div>
+
+            <!-- Existing App Detected Banner & Instant Fast-Forward Action -->
+            <div class="existing-app-banner" id="existingAppBanner" style="display: none;">
+              <div class="existing-app-badge">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                <span>تطبيق مسجل بالفعل في حساب المطور!</span>
+              </div>
+              <h4 class="existing-app-title" id="existingAppTitle">جوكر بلس - شريك المطاعم</h4>
+              <p class="existing-app-desc" id="existingAppDesc">تم رصد التطبيق في حسابك المطور. يمكنك المتابعة مباشرة لإكمال إعداد محتوى التطبيق وسياساته دون البدء من جديد!</p>
+              <div class="existing-app-actions">
+                <button type="button" class="btn-fast-forward" id="btnFastForwardContent">
+                  <span>⚡ متابعة مباشرة إلى محتوى التطبيق (الخطوة 3)</span>
+                </button>
+                <button type="button" class="btn-fast-forward-secondary" id="btnFastForwardUpload">
+                  <span>📦 رفع تحديث جديد للحزمة أولاً (الخطوة 2)</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Field: اللغة التلقائية -->
@@ -907,6 +934,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261104-locked"></script>
+  <script src="app.js?v=20261104-fastforward"></script>
 </body>
 </html>
