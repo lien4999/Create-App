@@ -708,13 +708,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (serverAccountApp.details.contactEmail) {
           contactEmail.value = serverAccountApp.details.contactEmail;
+          if (!ratingEmail.value) ratingEmail.value = serverAccountApp.details.contactEmail;
         }
         if (serverAccountApp.details.contactPhone) {
           contactPhone.value = serverAccountApp.details.contactPhone;
         }
         if (serverAccountApp.details.contactWebsite) {
           contactWebsite.value = serverAccountApp.details.contactWebsite;
+          if (!privacyPolicyUrl.value) privacyPolicyUrl.value = serverAccountApp.details.contactWebsite;
         }
+      }
+
+      if (serverAccountApp.appContent) {
+        const ac = serverAccountApp.appContent;
+        if (ac.privacyPolicyUrl) privacyPolicyUrl.value = ac.privacyPolicyUrl;
+        if (ac.ratingEmail) ratingEmail.value = ac.ratingEmail;
+        if (ac.contactEmail) contactEmail.value = ac.contactEmail;
+        if (ac.contactPhone) contactPhone.value = ac.contactPhone;
+        if (ac.contactWebsite) contactWebsite.value = ac.contactWebsite;
       }
 
       if (serverAccountApp.hasBundle && serverAccountApp.latestVersionCode) {
@@ -1215,6 +1226,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     markStepCompleted(3);
+    const pkg3 = packageName.value.trim();
+    if (pkg3) {
+      fetch('/api/save-app-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          packageName: pkg3,
+          appContent: collectCurrentStateObject().fields
+        })
+      }).catch(() => {});
+    }
     goToStep(4);
   });
 
@@ -1232,6 +1254,17 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     markStepCompleted(4);
+    const pkg4 = packageName.value.trim();
+    if (pkg4) {
+      fetch('/api/save-app-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          packageName: pkg4,
+          appContent: collectCurrentStateObject().fields
+        })
+      }).catch(() => {});
+    }
     goToStep(5);
   });
 
@@ -1761,6 +1794,8 @@ document.addEventListener('DOMContentLoaded', () => {
       contactWebsite: contactWebsite.value.trim()
     };
 
+    const appContentPayload = collectCurrentStateObject().fields;
+
     publishModal.style.display = 'flex';
     publishModalActions.style.display = 'none';
     closePublishModalBtn.style.display = 'none';
@@ -1793,6 +1828,7 @@ document.addEventListener('DOMContentLoaded', () => {
     formData.append('releaseNotes', releaseNotesText);
     formData.append('storeListingJson', JSON.stringify(storeListingPayload));
     formData.append('appDetailsJson', JSON.stringify(appDetailsPayload));
+    formData.append('appContentJson', JSON.stringify(appContentPayload));
 
     if (selectedIconFile) {
       formData.append('iconFile', selectedIconFile);
