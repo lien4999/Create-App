@@ -28,13 +28,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 300 * 1024 * 1024 }, // 300MB limit for AAB/APK
+  limits: { fileSize: 300 * 1024 * 1024 }, // 300MB limit
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext === '.aab' || ext === '.apk') {
+    const allowed = ['.aab', '.apk', '.png', '.jpg', '.jpeg', '.webp'];
+    if (allowed.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error('الملف يجب أن يكون بصيغة AAB أو APK'));
+      cb(new Error('صيغة الملف غير مدعومة'));
     }
   }
 });
@@ -60,7 +61,8 @@ app.get('/api/account-info', async (req, res) => {
     connection: connectionStatus,
     knownApps: [
       { name: 'ALFA GATE - كورس الجيم والمدرب', package: 'com.alfagate.gym' },
-      { name: 'دولار العراق', package: 'com.app.wrapper' }
+      { name: 'دولار العراق', package: 'com.app.wrapper' },
+      { name: 'جوكر بلس - شريك المطاعم', package: 'com.jokerpls.restaurantpartner' }
     ]
   });
 });
@@ -81,25 +83,59 @@ app.post('/api/check-package', async (req, res) => {
   }
 });
 
-// 3. Upload AAB/APK and Publish Directly to Google Play
-app.post('/api/upload-package', upload.single('packageFile'), async (req, res) => {
-  const uploadedFile = req.file;
+// Helper to clean up uploaded temp files
+function cleanupFiles(filesObj) {
+  if (!filesObj) return;
+  Object.values(filesObj).forEach(fileArr => {
+    if (Array.isArray(fileArr)) {
+      fileArr.forEach(f => {
+        if (f && f.path) fs.unlink(f.path, () => {});
+      });
+    }
+  });
+}
+
+// 3. Upload AAB/APK + Store Listing + Graphics and Publish Directly to Google Play
+const multiUpload = upload.fields([
+  { name: 'packageFile', maxCount: 1 },
+  { name: 'iconFile', maxCount: 1 },
+  { name: 'featureGraphicFile', maxCount: 1 },
+  { name: 'screenshotFiles', maxCount: 8 }
+]);
+
+app.post('/api/upload-package', multiUpload, async (req, res) => {
+  const files = req.files || {};
+  const uploadedFile = files.packageFile ? files.packageFile[0] : null;
 
   if (!uploadedFile) {
-    return res.status(400).json({ error: 'لم يتم استلام أي ملف للرفع' });
+    cleanupFiles(files);
+    return res.status(400).json({ error: 'لم يتم استلام ملف حزمة التطبيق (.aab أو .apk)' });
   }
 
   const {
     packageName,
     track = 'internal',
     releaseNotes = 'تحديث جديد تم رفعه وفحصه عبر المنصة.',
-    releaseStatus = 'completed'
+    releaseStatus = 'completed',
+    storeListingJson,
+    appDetailsJson
   } = req.body;
 
   if (!packageName) {
-    fs.unlink(uploadedFile.path, () => {});
+    cleanupFiles(files);
     return res.status(400).json({ error: 'اسم الحزمة (Package Name) مطلوب للنشر' });
   }
+
+  let storeListing = null;
+  let appDetails = null;
+
+  try {
+    if (storeListingJson) storeListing = JSON.parse(storeListingJson);
+  } catch (_) {}
+
+  try {
+    if (appDetailsJson) appDetails = JSON.parse(appDetailsJson);
+  } catch (_) {}
 
   try {
     console.log(`[Server] استلام ملف: ${uploadedFile.originalname} (${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)`);
@@ -110,14 +146,21 @@ app.post('/api/upload-package', upload.single('packageFile'), async (req, res) =
       packageName,
       track,
       releaseNotes,
-      status: releaseStatus
+      status: releaseStatus,
+      storeListing,
+      appDetails,
+      imageFiles: {
+        icon: files.iconFile || null,
+        featureGraphic: files.featureGraphicFile || null,
+        screenshots: files.screenshotFiles || null
+      }
     });
 
-    fs.unlink(uploadedFile.path, () => {});
+    cleanupFiles(files);
     res.json(result);
   } catch (error) {
     console.error('[Server] خطأ أثناء النشر:', error);
-    fs.unlink(uploadedFile.path, () => {});
+    cleanupFiles(files);
     res.status(500).json({
       error: error.message || 'فشلت عملية النشر إلى Google Play',
       details: error.errors || []

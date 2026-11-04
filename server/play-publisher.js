@@ -58,7 +58,7 @@ async function testPlayConnection(packageName = 'com.alfagate.gym') {
 }
 
 /**
- * Uploads an AAB or APK bundle and publishes it to a track
+ * Uploads an AAB or APK bundle, updates store listing/details/images if provided, and publishes to a track
  */
 async function publishAppPackage({
   filePath,
@@ -66,7 +66,10 @@ async function publishAppPackage({
   packageName,
   track = 'internal',
   releaseNotes = 'تحديث جديد تم رفعه وفحصه عبر المنصة.',
-  status = 'completed'
+  status = 'completed',
+  storeListing = null,
+  appDetails = null,
+  imageFiles = null
 }) {
   const play = getPlayClient();
   const isAab = fileName.toLowerCase().endsWith('.aab') || filePath.toLowerCase().endsWith('.aab');
@@ -109,7 +112,109 @@ async function publishAppPackage({
       console.log(`[Google Play API] اكتمل رفع الـ APK بنجاح! كود الإصدار: ${versionCode}`);
     }
 
+    // Optional: Update App Details (Contact Email, Phone, Website, Default Language)
+    if (appDetails && (appDetails.contactEmail || appDetails.contactWebsite || appDetails.contactPhone)) {
+      try {
+        console.log(`[Google Play API] تحديث تفاصيل الاتصال للتطبيق...`);
+        await play.edits.details.update({
+          packageName,
+          editId,
+          requestBody: {
+            defaultLanguage: appDetails.defaultLanguage || 'ar',
+            contactEmail: appDetails.contactEmail || undefined,
+            contactPhone: appDetails.contactPhone || undefined,
+            contactWebsite: appDetails.contactWebsite || undefined
+          }
+        });
+      } catch (detailErr) {
+        console.warn(`[Google Play API] تنبيه أثناء تحديث تفاصيل الاتصال:`, detailErr.message);
+      }
+    }
+
+    // Optional: Update Main Store Listing (Title, Short Description, Full Description)
+    if (storeListing && (storeListing.title || storeListing.shortDescription || storeListing.fullDescription)) {
+      try {
+        const lang = (appDetails && appDetails.defaultLanguage) || 'ar';
+        console.log(`[Google Play API] تحديث بطاقة بيانات المتجر باللغة (${lang})...`);
+        await play.edits.listings.update({
+          packageName,
+          editId,
+          language: lang,
+          requestBody: {
+            language: lang,
+            title: storeListing.title || undefined,
+            shortDescription: storeListing.shortDescription || undefined,
+            fullDescription: storeListing.fullDescription || undefined
+          }
+        });
+      } catch (listingErr) {
+        console.warn(`[Google Play API] تنبيه أثناء تحديث بطاقة المتجر:`, listingErr.message);
+      }
+    }
+
+    // Optional: Upload Store Graphics (Icon, Feature Graphic, Phone Screenshots)
+    if (imageFiles) {
+      const lang = (appDetails && appDetails.defaultLanguage) || 'ar';
+
+      if (imageFiles.icon && imageFiles.icon[0]) {
+        try {
+          console.log(`[Google Play API] رفع أيقونة التطبيق...`);
+          await play.edits.images.upload({
+            packageName,
+            editId,
+            language: lang,
+            imageType: 'icon',
+            media: {
+              mimeType: imageFiles.icon[0].mimetype || 'image/png',
+              body: fs.createReadStream(imageFiles.icon[0].path)
+            }
+          });
+        } catch (imgErr) {
+          console.warn(`[Google Play API] تنبيه أثناء رفع الأيقونة:`, imgErr.message);
+        }
+      }
+
+      if (imageFiles.featureGraphic && imageFiles.featureGraphic[0]) {
+        try {
+          console.log(`[Google Play API] رفع الصورة المميزة (Feature Graphic)...`);
+          await play.edits.images.upload({
+            packageName,
+            editId,
+            language: lang,
+            imageType: 'featureGraphic',
+            media: {
+              mimeType: imageFiles.featureGraphic[0].mimetype || 'image/png',
+              body: fs.createReadStream(imageFiles.featureGraphic[0].path)
+            }
+          });
+        } catch (imgErr) {
+          console.warn(`[Google Play API] تنبيه أثناء رفع الصورة المميزة:`, imgErr.message);
+        }
+      }
+
+      if (imageFiles.screenshots && imageFiles.screenshots.length > 0) {
+        for (const shot of imageFiles.screenshots) {
+          try {
+            console.log(`[Google Play API] رفع لقطة شاشة: ${shot.originalname}...`);
+            await play.edits.images.upload({
+              packageName,
+              editId,
+              language: lang,
+              imageType: 'phoneScreenshots',
+              media: {
+                mimeType: shot.mimetype || 'image/png',
+                body: fs.createReadStream(shot.path)
+              }
+            });
+          } catch (imgErr) {
+            console.warn(`[Google Play API] تنبيه أثناء رفع لقطة الشاشة:`, imgErr.message);
+          }
+        }
+      }
+    }
+
     console.log(`[Google Play API] تعيين الإصدار ${versionCode} إلى مسار: ${track}...`);
+    const lang = (appDetails && appDetails.defaultLanguage) || 'ar';
     await play.edits.tracks.update({
       packageName,
       editId,
@@ -123,7 +228,7 @@ async function publishAppPackage({
             status,
             releaseNotes: [
               {
-                language: 'ar',
+                language: lang,
                 text: releaseNotes
               }
             ]
@@ -138,7 +243,7 @@ async function publishAppPackage({
       editId
     });
 
-    console.log(`[Google Play API] 🎉 تم النشر بنجاح إلى Google Play!`);
+    console.log(`[Google Play API] 🎉 تم النشر وإرسال جميع التغييرات بنجاح إلى Google Play!`);
 
     return {
       success: true,
